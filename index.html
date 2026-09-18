@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Не бійся говорити · Say It Anyway</title>
+<meta name="description" content="Щоденна розмовна практика англійської на теми, які мають значення. Маршрут на 7 днів.">
+<meta name="theme-color" content="#F5F3EB" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14180F" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Say It Anyway">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./public/manifest.webmanifest">
+<link rel="apple-touch-icon" href="./public/icons/icon-180.png">
+<link rel="icon" href="./public/icons/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap&subset=cyrillic,latin">
+<link rel="stylesheet" href="./src/styles.css">
+<script src="./config.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<noscript><div style="padding:24px;font-family:system-ui">Для роботи застосунку потрібен JavaScript.</div></noscript>
+<script type="module" src="./src/app/app.js"></script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>

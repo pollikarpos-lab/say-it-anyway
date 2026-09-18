@@ -1,0 +1,20 @@
+{
+  "name": "Не бійся говорити · Say It Anyway",
+  "short_name": "Say It Anyway",
+  "description": "Щоденна розмовна практика англійської на теми, які мають значення.",
+  "lang": "uk",
+  "dir": "ltr",
+  "start_url": "../index.html",
+  "scope": "../",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F3EB",
+  "theme_color": "#F5F3EB",
+  "categories": ["education", "lifestyle"],
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
