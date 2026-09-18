@@ -30,7 +30,10 @@ export const LESSON_DAY6 = {
       id: 'nothaveto', en: "You don't have to carry this alone.", uk: 'Тобі не треба нести це самому.',
       note: 'Don\'t have to — «не мусиш», а не «не можна». Різниця велика: це дозвіл, а не заборона.',
       example: "Whatever happens, you don't have to carry this alone.",
-      match: [/\bdon(?:'|’)?t\s+have\s+to\s+carry\b/i, /\bcarry\s+this\s+alone\b/i],
+      match: [/\b(?:do(?:n(?:'|’)?t|es\s*n(?:'|’)?t)|don(?:'|’)?t|doesn(?:'|’)?t)\s+(?:have|need)\s+to\s+carry\b/i],
+      // Свідомо БЕЗ вільного /carry this alone/: «I carry this alone» — це
+      // те, що людина носить сама, а не дозвіл іншому не нести. Ловити на
+      // цьому означало б зарахувати конструкцію, якої людина не сказала.
     },
     {
       id: 'careabout', en: 'I care about you.', uk: 'Ти мені небайдужий.',
@@ -73,5 +76,5 @@ export const LESSON_DAY6 = {
   ],
 
   demoTranscript:
-    "I carry this alone for two years. My wife don't know how hard it is. I want tell her but I am afraid she will worry. Maybe this week I will say her.",
+    "I carry this alone for two years. My wife don't know how hard it is. I want tell her but I am afraid she will worry. I care about her very much. Maybe this week I will say her.",
 };

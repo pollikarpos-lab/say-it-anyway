@@ -71,6 +71,30 @@ async function walkOpenDay(day, o = {}) {
     check(`д${day}: сенс збережено («${w}»)`, improved.includes(w), improved.slice(0, 70) + '…');
   }
   if (o.shotPrefix) await b.shot(SHOTS + o.shotPrefix + '-improved.png', { full: true });
+  if (o.checkBottomReachable) {
+    // Липка панель «Далі» не повинна назавжди ховати останній блок сторінки:
+    // прокрутивши до кінця, користувач мусить бачити його повністю.
+    const clear = await b.eval(`(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+      const bar = document.querySelector('.actionbar');
+      const cards = [...document.querySelectorAll('.card')];
+      const last = cards[cards.length - 1];
+      if (!bar || !last) return -1;
+      return Math.round(bar.getBoundingClientRect().top - last.getBoundingClientRect().bottom);
+    })()`);
+    check(`д${day}: прокрутка до кінця показує останній блок над панеллю`, clear >= 0, `запас ${clear}px`);
+    await b.eval(`window.scrollTo(0, 0)`); await wait(150);
+  }
+  if (o.expectUsed || o.expectUnused) {
+    const used = await b.eval(`JSON.stringify(window.__SIA__.lesson.analysis.usedTargets)`);
+    const list = JSON.parse(used);
+    for (const id of (o.expectUsed || [])) {
+      check(`д${day}: зараховано «${id}» — воно справді є в сирому тексті`, list.includes(id), list.join(','));
+    }
+    for (const id of (o.expectUnused || [])) {
+      check(`д${day}: НЕ зараховано «${id}» — людина цього не казала`, !list.includes(id), list.join(','));
+    }
+  }
   await b.eval(clickText('Далі')); await wait(300);
   await b.eval(clickText('Зберегти мою фразу')); await wait(500);
   const done = await b.eval(text());
@@ -408,6 +432,8 @@ try {
     expectCorrection: "doesn't",
     expectInProof: ['carrying this alone', 'tell her'],
     nextLabel: 'Далі: день 7',
+    expectUsed: ['careabout'],
+    expectUnused: ['carrying', 'nothaveto'],
   });
 
   /* ═══════════════════════════════════════════
@@ -440,6 +466,8 @@ try {
     expectCorrection: "couldn't",
     expectInProof: ['A week ago', 'Now I can', 'still working on it'],
     nextLabel: 'До підсумків маршруту',
+    expectUsed: ['weekago', 'nowican', 'stillworking'],
+    checkBottomReachable: true,
   });
 
   const d7done = await b.eval(text());

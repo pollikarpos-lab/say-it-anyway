@@ -1,4 +1,4 @@
-Наскрізний прогін — 2026-09-18T06:30:24.639Z
+Наскрізний прогін — 2026-09-18T06:41:29.215Z
 Chromium headless, 390×844 @2x
 Пройдено всі сім днів маршруту підряд.
 
@@ -129,6 +129,9 @@ PASS  д6: показано ≤3 корекції — 3 шт.
 PASS  д6: спіймано «doesn't»
 PASS  д6: сенс збережено («carrying this alone») — I've been carrying this alone for two years. My wife doesn't know how …
 PASS  д6: сенс збережено («tell her») — I've been carrying this alone for two years. My wife doesn't know how …
+PASS  д6: зараховано «careabout» — воно справді є в сирому тексті — careabout
+PASS  д6: НЕ зараховано «carrying» — людина цього не казала — careabout
+PASS  д6: НЕ зараховано «nothaveto» — людина цього не казала — careabout
 PASS  д6: урок завершено
 PASS  д6: кнопка веде далі
 PASS  день 7 відкрився
@@ -149,6 +152,10 @@ PASS  д7: спіймано «couldn't»
 PASS  д7: сенс збережено («A week ago») — A week ago I was afraid to speak English with people at work. I could …
 PASS  д7: сенс збережено («Now I can») — A week ago I was afraid to speak English with people at work. I could …
 PASS  д7: сенс збережено («still working on it») — A week ago I was afraid to speak English with people at work. I could …
+PASS  д7: прокрутка до кінця показує останній блок над панеллю — запас 118px
+PASS  д7: зараховано «weekago» — воно справді є в сирому тексті — weekago,nowican,stillworking
+PASS  д7: зараховано «nowican» — воно справді є в сирому тексті — weekago,nowican,stillworking
+PASS  д7: зараховано «stillworking» — воно справді є в сирому тексті — weekago,nowican,stillworking
 PASS  д7: урок завершено
 PASS  д7: кнопка веде далі
 PASS  д7: є блок порівняння «День 3 → День 7»
@@ -195,4 +202,4 @@ PASS  service worker зареєстровано — реєстрацій: 1
 PASS  немає помилок у консолі (крім недоступного Google Fonts у пісочниці)
 PASS  шрифт має робочий системний фолбек
 
-PASS: 192   FAIL: 0
+PASS: 199   FAIL: 0
