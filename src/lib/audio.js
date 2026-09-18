@@ -80,7 +80,11 @@ export function createRecorder({ onLevel, onTick, onAutoStop } = {}) {
     rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
     chunks = []; stopped = false;
     rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-    rec.start(200);
+    // Свідомо БЕЗ timeslice. Шматки нам не потрібні — блоб збирається один
+    // раз на stop(). А Safari пише mp4 фрагментами, і нарізка timeslice там
+    // історично давала непрогравані записи. Немає нарізки — немає класу
+    // помилок, яких ми все одно не змогли б відтворити в Chromium.
+    rec.start();
     startedAt = Date.now();
 
     // рівень сигналу для хвилі
@@ -88,6 +92,11 @@ export function createRecorder({ onLevel, onTick, onAutoStop } = {}) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (AC) {
         ctx = new AC();
+        // Safari створює AudioContext у стані suspended, якщо жест користувача
+        // «згорів» на await getUserMedia вище. Без resume() хвиля просто стоїть.
+        if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+          ctx.resume().catch(() => {});
+        }
         const src = ctx.createMediaStreamSource(stream);
         analyser = ctx.createAnalyser();
         analyser.fftSize = 512;
