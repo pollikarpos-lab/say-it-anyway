@@ -107,3 +107,50 @@ test('розбір чесно позначений як демонстрацій
   assert.equal(r.isDemo, true);
   assert.equal(r.provider, 'rule-based');
 });
+
+/* Знайдено власником на живих реченнях 18.09.2026. Обидва рази розбір
+   мовчав саме на цільовій конструкції того дня — і пропонував зберегти
+   помилку на згадку. Ці перевірки стережуть, щоб не повторилося. */
+test('will + минула форма виправляється (день 5: I will…)', async () => {
+  const { createMockLlm } = await import('../src/providers/mock.js');
+  const llm = createMockLlm();
+  for (const [bad, good] of [
+    ['I will called them this week.', 'I will call them this week.'],
+    ['I will went there.', 'I will go there.'],
+    ['I will told her tomorrow.', 'I will tell her tomorrow.'],
+  ]) {
+    const r = await llm.analyze({ transcript: bad, targets: [] });
+    assert.equal(r.improved, good);
+  }
+});
+
+test('will + початкова форма НЕ псується', async () => {
+  const { createMockLlm } = await import('../src/providers/mock.js');
+  const llm = createMockLlm();
+  for (const ok of [
+    'I will call them this week.',
+    'It will be called something else.',
+    'I will have finished by Friday.',
+    'I will need more time.',
+    'I will feed the dog.',
+    'I will succeed.',
+  ]) {
+    const r = await llm.analyze({ transcript: ok, targets: [] });
+    assert.equal(r.improved, ok, `зіпсовано правильне речення: ${ok}`);
+  }
+});
+
+test('теперішній стан виправляється (день 3: I\'m worried about…)', async () => {
+  const { createMockLlm } = await import('../src/providers/mock.js');
+  const llm = createMockLlm();
+  const r = await llm.analyze({ transcript: 'I worried about my owner.', targets: [] });
+  assert.equal(r.improved, "I'm worried about my owner.");
+});
+
+test('законний минулий час лишається недоторканим', async () => {
+  const { createMockLlm } = await import('../src/providers/mock.js');
+  const llm = createMockLlm();
+  const t = 'I worried about it yesterday, but now it is fine.';
+  const r = await llm.analyze({ transcript: t, targets: [] });
+  assert.equal(r.improved, t);
+});

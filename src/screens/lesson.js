@@ -784,12 +784,23 @@ function savePhraseStep(ctx, page, next) {
   const text = (ls.analysis && ls.analysis.improved) || '';
   const options = splitSentences(text).slice(0, 4);
   let picked = ls.pickedPhrase || options[0] || '';
+  // Якщо правила не знайшли жодної правки, «покращена» версія — це просто
+  // те, що людина сказала. Пропонувати таке на згадку як зразок не можна:
+  // саме так «I will called them this week» ледь не лишилося вивченим.
+  const unchecked = ctx.providerMode === 'mock'
+    && ls.analysis && (ls.analysis.corrections || []).length === 0;
 
   return page([
     h('p.eyebrow', { style: { marginTop: '18px' } }, 'Забрати з собою'),
     h('h2', 'Одна фраза ', h('em', 'на повторення.')),
     h('p.muted', { style: { marginBottom: '20px' } },
       'Вибери речення, яке хочеш уміти сказати не думаючи. Воно повернеться в наступних днях.'),
+    unchecked
+      ? h('.card', { style: { borderColor: 'var(--clay)', marginBottom: '16px' } },
+          h('p.tiny', { style: { marginBottom: 0 } },
+            'Обережно: правила нічого не змінили в цій відповіді, тож це твої слова як є, без перевірки. '
+            + 'Помилка, на яку немає правила, так і лишиться в збереженій фразі. Коли підключимо AI, перевірка буде справжня.'))
+      : null,
     options.length
       ? h('div', ...options.map(s => h('button.choice', {
           type: 'button', 'aria-pressed': picked === s ? 'true' : 'false',

@@ -28,6 +28,18 @@ export function createMockStt(demoByDay) {
    текстом користувача: що напишете/скажете, те й розбирає.
    ============================================================ */
 
+const BASE_FORMS = {
+  told: 'tell', went: 'go', saw: 'see', said: 'say', did: 'do', made: 'make',
+  took: 'take', gave: 'give', got: 'get', came: 'come', knew: 'know',
+  thought: 'think', felt: 'feel', found: 'find', left: 'leave', met: 'meet',
+  paid: 'pay', ran: 'run', sent: 'send', spoke: 'speak', wrote: 'write',
+  began: 'begin', brought: 'bring', bought: 'buy', built: 'build',
+  chose: 'choose', drove: 'drive', ate: 'eat', fell: 'fall', flew: 'fly',
+  forgot: 'forget', heard: 'hear', held: 'hold', kept: 'keep', lost: 'lose',
+  slept: 'sleep', sat: 'sit', won: 'win', wore: 'wear', tried: 'try',
+  stopped: 'stop',
+};
+
 const PAST_MARKER = /\b(yesterday|last\s+(?:night|week|month|year)|ago|back\s+then|when\s+I\s+was|used\s+to|in\s+(?:19|20)\d\d)\b/i;
 
 const PAST_FORMS = {
@@ -225,6 +237,17 @@ const RULES = [
   { id: 'much-people', re: /\b(much)\s+(people|friends|things|words|days)\b/gi,
     fix: (m) => `many ${m[2]}`, kind: K.GRAMMAR, weight: 7,
     why: 'Many — з тим, що рахується (people, friends). Much — з тим, що ні (time, money).' },
+
+  /* ---- знайдено 18.09.2026, знову на справжньому реченні ----
+     «I will called them this week» проходило без зауважень і
+     пропонувалося зберегти на згадку. Will — це цільова конструкція
+     дня 5, і саме на ній розбір мовчав. ---- */
+
+  { id: 'will-past-form',
+    re: /\b(will|'ll|’ll)\s+(called|worked|talked|tried|asked|told|went|saw|said|did|made|took|gave|got|came|knew|thought|felt|found|left|met|paid|ran|sent|spoke|wrote|began|brought|bought|built|chose|drove|ate|fell|flew|forgot|heard|held|kept|learned|lost|wanted|started|finished|decided|moved|opened|played|showed|stopped|turned|visited|waited|walked|watched|helped|looked|liked|lived|happened|wrote|slept|sat|won|wore)\b/gi,
+    fix: (m) => `${m[1]} ${BASE_FORMS[m[2].toLowerCase()] || m[2].toLowerCase().replace(/ed$/, '')}`,
+    kind: K.GRAMMAR, weight: 10,
+    why: 'Після will дієслово стоїть у початковій формі: I will call, а не I will called. Will уже показує, що це майбутнє — минулий час тут зайвий.' },
 ];
 
 function applyRules(text) {
