@@ -1,4 +1,4 @@
-import { h } from '../lib/dom.js';
+import { h, addKids } from '../lib/dom.js';
 import { topbar, actionbar, sheet, siteFoot, primaryBtn } from '../app/ui.js';
 import { MODES } from './onboarding.js';
 import { track, readLog } from '../lib/analytics.js';
@@ -54,7 +54,7 @@ export function SettingsScreen({ state, onBack, onChangeMode, onDeleteRecording,
 
   const evCount = readLog().length;
 
-  root.append(
+  addKids(root,
     topbar({ onBack, title: 'Налаштування' }),
     h('.flow.pad-bottom', h('.wrap',
       h('h3', { style: { marginTop: '16px' } }, 'Режим'),

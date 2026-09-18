@@ -26,11 +26,25 @@ const clickText = (t, tag = 'button') => `(() => {
 })()`;
 const clickSel = (s) => `(() => { const e = document.querySelector(${JSON.stringify(s)}); if(!e) return false; e.click(); return true; })()`;
 const text = () => `document.getElementById('root').innerText`;
+const strayValues = [];
+/** Ловить null/undefined/NaN, що просочилися в текст екрана. */
+function sweepStray(where, screenText) {
+  const m = String(screenText).match(/(?:^|[\s>])(null|undefined|NaN)(?=[\s<.,:;!?]|$)/g);
+  if (m) strayValues.push(`${where}: ${[...new Set(m.map(x => x.trim()))].join(', ')}`);
+}
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
 // innerText враховує text-transform: uppercase, тому порівнюємо без регістру
 const has = (hay, needle) => String(hay).toLocaleLowerCase('uk').includes(String(needle).toLocaleLowerCase('uk'));
 
 const b = await launch({ width: 390, height: 844, dsf: 2 });
+
+// Кожен знімок екрана заразом перевіряється на просочені null/undefined/NaN:
+// так перевірка їде разом зі знімками й нічого не треба дописувати вручну.
+const rawShot = b.shot.bind(b);
+b.shot = async (path, opts) => {
+  try { sweepStray(path.split('/').pop(), await b.eval(text())); } catch {}
+  return rawShot(path, opts);
+};
 
 /** Чекає на реальний стан, а не на «приблизно стільки мілісекунд». */
 async function waitFor(expr, { timeout = 12000, every = 150, label = '' } = {}) {
@@ -200,6 +214,16 @@ try {
     if (i === 1) await b.shot(SHOTS + '14-day1-recorded.png', { full: true });
     if (i === 1) check('д1: після запису з\'явилася головна кнопка «Наступна фраза»',
       await b.eval(`!![...document.querySelectorAll('.actionbar .btn--primary')].length`));
+    if (i === 1) {
+      // Саме картка ВЛАСНОГО запису, а не програвач диктора: у ній була «null».
+      const own = await b.eval(`(() => {
+        const p = [...document.querySelectorAll('.player')]
+          .find(e => e.innerText.includes('Як це прозвучало в тебе'));
+        return p ? p.innerText.replace(/\\n/g, ' ⏎ ') : '(картки запису немає)';
+      })()`);
+      check('д1: картка власного запису знайдена', !own.startsWith('('), own);
+      check('д1: у картці власного запису немає «null»', !/\bnull\b/.test(own), own);
+    }
     if (i < 3) { await b.eval(clickText('Наступна фраза')); await wait(350); }
   }
   check('д1: аудіо лишилося у вкладці й не пішло в розпізнавання',
@@ -592,6 +616,11 @@ try {
   /* ═══════════ Підсумок ═══════════ */
   const FONT_NOISE = /fonts\.(googleapis|gstatic)\.com|ERR_TUNNEL_CONNECTION_FAILED|favicon/i;
   const errs = b.logs.filter(l => l.level === 'error' && !FONT_NOISE.test(l.text));
+  // Найдешевша перевірка на цілий клас помилок: DOM перетворює null на текст
+  // «null», і він мовчки з'являється на екрані. Те саме з undefined і NaN.
+  check('на жодному пройденому екрані не лишилося «null» / «undefined» / «NaN»',
+    !strayValues.length, strayValues.join(' | ') || 'чисто');
+
   check('немає помилок у консолі (крім недоступного Google Fonts у пісочниці)',
     errs.length === 0, errs.map(e => e.text).join(' | ').slice(0, 200));
   check('шрифт має робочий системний фолбек',

@@ -1,4 +1,4 @@
-import { h, icon } from '../lib/dom.js';
+import { h, icon, addKids } from '../lib/dom.js';
 
 export function topbar({ onBack, title, right } = {}) {
   return h('header.topbar',
@@ -144,7 +144,7 @@ export function ttsPlayer(tts, text, { title, sub, dark = false, compact = false
   });
 
   btn.disabled = !avail;
-  row.append(btn, h('.player__meta',
+  addKids(row, btn, h('.player__meta',
     h('b', title || 'Слухати англійською'), meta,
     compact ? null : h('.player__bar', bar)));
   paint();
@@ -172,7 +172,7 @@ export function blobPlayer(blob, { title, durationMs, onDelete } = {}) {
     const d = audio.duration && isFinite(audio.duration) ? audio.duration : (durationMs || 0) / 1000;
     if (d) bar.style.width = Math.min(100, (audio.currentTime / d) * 100) + '%';
   };
-  row.append(btn,
+  addKids(row, btn,
     h('.player__meta',
       h('b', title || 'Твій запис'),
       h('.tiny', { style: { marginTop: '1px' } }, durationMs ? `${Math.round(durationMs / 1000)} секунд` : 'аудіо'),

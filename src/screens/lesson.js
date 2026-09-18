@@ -655,6 +655,8 @@ function improvedStep(ctx, page, next) {
   const text = safe.text;
   const original = ls.transcript ? ls.transcript.text : '';
   const unchanged = safe.ok && norm(text) === norm(original);
+  // Розбір на простих правилах не має права стверджувати правильність.
+  const ruleBased = ctx.providerMode === 'mock';
 
   const repeatBtn = h('button.btn.btn--ghost.btn--center', { type: 'button' }, h('span', 'Повторити за диктором'));
   repeatBtn.addEventListener('click', () => {
@@ -669,12 +671,20 @@ function improvedStep(ctx, page, next) {
   });
 
   return page([
-    h('p.eyebrow', { style: { marginTop: '18px' } }, unchanged ? 'Нічого міняти' : 'Та сама думка'),
+    // «Нічого не знайшли» і «все правильно» — різні речі, і плутати їх не можна.
+    // На простих правилах нуль правок означає лише те, що такого правила немає:
+    // підтвердити помилку як правильну — гірше, ніж промовчати про неї.
+    h('p.eyebrow', { style: { marginTop: '18px' } },
+      unchanged ? (ruleBased ? 'Без правок' : 'Нічого міняти') : 'Та сама думка'),
     h('h2', unchanged
-      ? h('span', 'Ти сказав це ', h('em', 'правильно одразу.'))
+      ? (ruleBased
+          ? h('span', 'Правила тут ', h('em', 'нічого не знайшли.'))
+          : h('span', 'Ти сказав це ', h('em', 'правильно одразу.')))
       : h('span', 'Твої слова. ', h('em', 'Трохи природніше.'))),
     h('p.muted', { style: { marginBottom: '20px' } }, unchanged
-      ? 'Правила не знайшли, що тут поліпшити. Це твоє речення таким, як ти його сказав.'
+      ? (ruleBased
+          ? 'Це не означає, що речення правильне — тільки те, що в цьому списку правил немає нічого на цей випадок. Справжній розбір буде, коли підключимо AI.'
+          : 'Розбір не знайшов, що тут поліпшити. Це твоє речення таким, як ти його сказав.')
       : 'Це не зразкова відповідь із підручника. Зміст твій — змінена тільки форма.'),
 
     !safe.ok
@@ -686,7 +696,7 @@ function improvedStep(ctx, page, next) {
         ? h('.thought.thought--improved', { style: { marginBottom: '16px' } },
             h('small', 'Твоє речення'),
             h('p.thought__text', text),
-            h('.thought__note', 'Без жодної правки.'))
+            h('.thought__note', ruleBased ? 'Показано як є, без перевірки.' : 'Без жодної правки.'))
         : thoughtPair({
             original, improved: text,
             originalLabel: 'Як сказав ти', improvedLabel: 'Трохи природніше',

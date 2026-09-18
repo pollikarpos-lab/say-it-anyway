@@ -28,7 +28,15 @@ export function createMockStt(demoByDay) {
    текстом користувача: що напишете/скажете, те й розбирає.
    ============================================================ */
 
-/** @type {{id:string,re:RegExp,fix:(m:string[])=>string,kind:string,why:string,weight:number}[]} */
+const PAST_MARKER = /\b(yesterday|last\s+(?:night|week|month|year)|ago|back\s+then|when\s+I\s+was|used\s+to|in\s+(?:19|20)\d\d)\b/i;
+
+const PAST_FORMS = {
+  go: 'went', come: 'came', see: 'saw', say: 'said', tell: 'told', make: 'made',
+  take: 'took', have: 'had', do: 'did', feel: 'felt', think: 'thought',
+  know: 'knew', get: 'got',
+};
+
+/** @type {{id:string,re:RegExp,fix:(m:string[])=>string,kind:string,why:string,weight:number,skipIf?:(t:string)=>boolean}[]} */
 const RULES = [
   { id: 'very-worry', re: /\bI\s+very\s+worry\b/gi, fix: () => "I'm really worried",
     kind: K.CLARITY, weight: 10,
@@ -177,6 +185,46 @@ const RULES = [
 
   { id: 'my-english', re: /\bmy\s+english\b/g, fix: () => 'my English',
     kind: K.GRAMMAR, weight: 2, why: 'Назви мов пишуть із великої літери: English.' },
+
+  /* ---- знайдено 18.09.2026 на справжньому реченні користувача ----
+     «I worried about my owner» не ловилося взагалі, хоча I'm worried about —
+     це цільова конструкція самого дня 3. Правил на найчастіші помилки
+     україномовних бракує; нижче — перша партія. ---- */
+
+  { id: 'i-worried-about', re: /\bI\s+worried\s+about\b/gi, fix: () => "I'm worried about",
+    kind: K.CLARITY, weight: 10,
+    skipIf: (t) => PAST_MARKER.test(t),
+    why: 'Про те, що турбує зараз, кажуть I\'m worried about. «I worried» — це минулий час: турбувався тоді, а вже ні.' },
+
+  { id: 'i-was-worry', re: /\bI\s+was\s+worry\b/gi, fix: () => 'I was worried',
+    kind: K.GRAMMAR, weight: 9,
+    why: 'Після was потрібна форма worried.' },
+
+  { id: 'past-marker-present', re: /\b(yesterday|last\s+(?:night|week|month|year))\s+I\s+(go|come|see|say|tell|make|take|have|do|feel|think|know|get)\b/gi,
+    fix: (m) => `${m[1]} I ${PAST_FORMS[m[2].toLowerCase()]}`,
+    kind: K.CLARITY, weight: 10,
+    why: 'Слово про минуле вимагає й дієслова в минулому: yesterday I went, last week I saw.' },
+
+  { id: 'in-hospital', re: /\bin\s+hospital\b/gi, fix: () => 'in the hospital',
+    kind: K.NATURAL, weight: 4,
+    why: 'В американській англійській кажуть in the hospital, з артиклем. Без артикля — британський варіант, теж правильний, але в США звучить незвично.' },
+
+  { id: 'i-am-agree', re: /\bI\s+am\s+agree\b/gi, fix: () => 'I agree',
+    kind: K.GRAMMAR, weight: 9,
+    why: 'Agree — це дієслово, тому без am: I agree.' },
+
+  { id: 'i-feel-myself', re: /\bI\s+feel\s+myself\b/gi, fix: () => 'I feel',
+    kind: K.NATURAL, weight: 8,
+    why: 'Англійською просто I feel tired. «Feel myself» звучить дивно й може прозвучати непристойно.' },
+
+  { id: 'i-have-not', re: /\bI\s+have\s+not\s+(?!been\b|got\b)([a-z]+)\b/gi,
+    fix: (m) => `I don't have ${m[1]}`,
+    kind: K.CLARITY, weight: 8,
+    why: 'Коли have означає «мати», заперечення будується через don\'t have.' },
+
+  { id: 'much-people', re: /\b(much)\s+(people|friends|things|words|days)\b/gi,
+    fix: (m) => `many ${m[2]}`, kind: K.GRAMMAR, weight: 7,
+    why: 'Many — з тим, що рахується (people, friends). Much — з тим, що ні (time, money).' },
 ];
 
 function applyRules(text) {
@@ -186,6 +234,9 @@ function applyRules(text) {
   let improved = text;
 
   for (const rule of RULES) {
+    // skipIf дає правилу право промовчати, коли контекст його спростовує:
+    // «I worried about it yesterday» — законний минулий час, не помилка.
+    if (rule.skipIf && rule.skipIf(improved)) continue;
     const probe = new RegExp(rule.re.source, rule.re.flags.replace('g', ''));
     const m = probe.exec(improved);
     if (!m) continue;

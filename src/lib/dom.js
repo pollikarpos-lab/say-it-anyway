@@ -40,6 +40,14 @@ export function h(sel, props, ...kids) {
   return el;
 }
 
+/**
+ * Додає дітей у вже створений елемент, пропускаючи null/false/''.
+ * Використовувати ЗАМІСТЬ el.append(): нативний append() перетворює null
+ * на текстовий вузол «null», і він мовчки з'являється на екрані —
+ * саме так у дні 1 під тривалістю запису вилізло слово «null».
+ */
+export function addKids(el, ...kids) { append(el, kids); return el; }
+
 function append(el, kids) {
   for (const k of kids.flat(4)) {
     if (k == null || k === false || k === '') continue;
