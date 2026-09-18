@@ -131,6 +131,37 @@ const RULES = [
     kind: K.NATURAL, weight: 8,
     why: 'Come out of — саме of. І якщо це вже позаду, то came, у минулому.' },
 
+  // ── типові помилки в розповіді про себе (дні 6–7) ──
+  { id: 'not-could', re: /\bI\s+not\s+(could|can|would|should|did)\b/gi,
+    fix: (m) => ({ could: "I couldn't", can: "I can't", would: "I wouldn't",
+                   should: "I shouldn't", did: "I didn't" })[m[1].toLowerCase()],
+    kind: K.CLARITY, weight: 10,
+    why: 'Заперечення приєднується до самого модального: I couldn\'t, а не I not could.' },
+
+  { id: 'singular-dont',
+    re: /\b(my\s+(?:wife|husband|mother|father|mom|dad|son|daughter|manager|boss|friend|brother|sister|teacher)|he|she|it)\s+don(?:'|’)?t\b/gi,
+    fix: (m) => `${m[1]} doesn't`, kind: K.GRAMMAR, weight: 9,
+    why: 'Коли підмет один — he, she, my wife — заперечення через doesn\'t, не don\'t.' },
+
+  { id: 'want-bare-verb',
+    re: /\b(want|need|try|hope|decide|plan|forget|promise)\s+(tell|say|go|call|talk|ask|do|write|speak|start|help|learn)\b/gi,
+    fix: (m) => `${m[1]} to ${m[2]}`, kind: K.GRAMMAR, weight: 8,
+    why: 'Після want, need, try, hope друге дієслово йде з to: I want to tell her.' },
+
+  { id: 'say-someone', re: /\bsay\s+(her|him|them|me|us)\b/gi,
+    fix: (m) => `tell ${m[1]}`, kind: K.NATURAL, weight: 8,
+    why: 'Say щось — але tell комусь. I will tell her, не I will say her.' },
+
+  { id: 'present-for-duration',
+    re: /\bI\s+(carry|live|work|wait|study|learn|save|look)\s+([^.!?]{0,50}?)for\s+(\w+)\s+(years?|months?|weeks?|days?)\b/gi,
+    fix: (m) => {
+      const ING = { carry: 'carrying', live: 'living', work: 'working', wait: 'waiting',
+                    study: 'studying', learn: 'learning', save: 'saving', look: 'looking' };
+      return `I've been ${ING[m[1].toLowerCase()]} ${m[2]}for ${m[3]} ${m[4]}`;
+    },
+    kind: K.GRAMMAR, weight: 9,
+    why: 'Коли дія почалася раніше й триває досі, англійською кажуть have been + -ing: I\'ve been carrying this for two years.' },
+
   // ── типові помилки в обіцянках (день 5) ──
   { id: 'will-to', re: /\bwill\s+to\s+(\w+)/gi, fix: (m) => `will ${m[1]}`,
     kind: K.GRAMMAR, weight: 10,

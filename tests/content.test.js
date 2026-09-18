@@ -7,14 +7,16 @@ import { LESSON_DAY1 as L1 } from '../src/content/lesson-day1.js';
 import { LESSON_DAY2 as L2 } from '../src/content/lesson-day2.js';
 import { LESSON_DAY4 as L4 } from '../src/content/lesson-day4.js';
 import { LESSON_DAY5 as L5 } from '../src/content/lesson-day5.js';
-import { LESSONS, BUILT_DAYS, getLesson, isDayUnlocked, nextDay } from '../src/content/lessons.js';
+import { LESSON_DAY6 as L6 } from '../src/content/lesson-day6.js';
+import { LESSON_DAY7 as L7 } from '../src/content/lesson-day7.js';
+import { LESSONS, BUILT_DAYS, getLesson, isDayUnlocked, nextDay, routeComplete } from '../src/content/lessons.js';
 import { EVENTS } from '../src/lib/analytics.js';
 
-test('маршрут має 7 днів, із них п\'ять написані', () => {
+test('маршрут повний: усі 7 днів написані', () => {
   assert.equal(ROUTE.days.length, 7);
   const ready = ROUTE.days.filter(d => d.status === 'ready').map(d => d.day);
-  assert.deepEqual(ready, [1, 2, 3, 4, 5]);
-  assert.deepEqual(BUILT_DAYS, [1, 2, 3, 4, 5]);
+  assert.deepEqual(ready, [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(BUILT_DAYS, [1, 2, 3, 4, 5, 6, 7]);
   assert.equal(ACTIVE_DAY, 1);
 });
 
@@ -26,12 +28,15 @@ test('дні відкриваються послідовно', () => {
   assert.equal(isDayUnlocked(3, [1, 2]), true);
   assert.equal(isDayUnlocked(4, [1, 2, 3]), true);
   assert.equal(isDayUnlocked(5, [1, 2, 3, 4]), true);
-  assert.equal(isDayUnlocked(6, [1, 2, 3, 4, 5]), false, 'день 6 ще не написаний');
+  assert.equal(isDayUnlocked(6, [1, 2, 3, 4, 5]), true);
+  assert.equal(isDayUnlocked(7, [1, 2, 3, 4, 5, 6]), true);
+  assert.equal(isDayUnlocked(7, [1, 2, 3, 4, 5]), false, 'без дня 6 сьомий закритий');
+  assert.equal(isDayUnlocked(8, [1, 2, 3, 4, 5, 6, 7]), false, 'восьмого дня немає');
 });
 
 test('показовий режим відкриває всі написані дні', () => {
   for (const d of BUILT_DAYS) assert.equal(isDayUnlocked(d, [], true), true);
-  assert.equal(isDayUnlocked(6, [], true), false, 'але не ненаписані');
+  assert.equal(isDayUnlocked(8, [], true), false, 'але не ненаписані');
 });
 
 test('nextDay веде по маршруту', () => {
@@ -39,8 +44,36 @@ test('nextDay веде по маршруту', () => {
   assert.equal(nextDay([1]), 2);
   assert.equal(nextDay([1, 2]), 3);
   assert.equal(nextDay([1, 2, 3]), 4);
-  assert.equal(nextDay([1, 2, 3, 4]), 5);
-  assert.equal(nextDay([1, 2, 3, 4, 5]), 5);
+  assert.equal(nextDay([1, 2, 3, 4, 5]), 6);
+  assert.equal(nextDay([1, 2, 3, 4, 5, 6]), 7);
+  assert.equal(nextDay([1, 2, 3, 4, 5, 6, 7]), 7, 'після сьомого нікуди вести');
+});
+
+test('routeComplete спрацьовує лише на повному маршруті', () => {
+  assert.equal(routeComplete([]), false);
+  assert.equal(routeComplete([1, 2, 3, 4, 5, 6]), false);
+  assert.equal(routeComplete([1, 2, 3, 4, 5, 6, 7]), true);
+});
+
+test('день 7 — монолог із порівнянням', () => {
+  assert.equal(L7.kind, 'monologue');
+  assert.equal(L6.kind, 'open');
+  assert.ok(/60–90|півтори хвилини/.test(L7.voicePrompt.open + L7.intro.open));
+  assert.ok(/день 3|дні 3|днем 3/i.test(L7.intro.open + L7.practice.open.body));
+});
+
+test('день 6 адресує відповідь іншій людині', () => {
+  assert.ok(/їй|людині|комусь/.test(L6.voicePrompt.open));
+  assert.ok(L6.targets.some(t => /you don(?:'|’)?t have to/i.test(t.en)));
+});
+
+test('день 7 має найменше помилок у демо — прогрес видно і там', async () => {
+  const { createMockLlm } = await import('../src/providers/mock.js');
+  const llm = createMockLlm();
+  const r3 = await llm.analyze({ transcript: LESSONS[3].demoTranscript, targets: LESSONS[3].targets });
+  const r7 = await llm.analyze({ transcript: L7.demoTranscript, targets: L7.targets });
+  assert.ok(r7.totalFound < r3.totalFound, `день 7: ${r7.totalFound}, день 3: ${r3.totalFound}`);
+  assert.equal(r7.usedTargets.length, 3, 'у дні 7 вжито всі три конструкції');
 });
 
 test('дні 4 і 5 — вільна відповідь із власною мовною ціллю', () => {
@@ -133,8 +166,8 @@ test('кожен день має назву й посилання', () => {
   }
 });
 
-test('усі п\'ять уривків перевірені, з джерелами звірки', () => {
-  for (const id of ['2ti1.7', 'jhn14.27', 'php4.6-7', 'isa43.2', 'isa41.10']) {
+test('усі сім уривків перевірені, з джерелами звірки', () => {
+  for (const id of ['2ti1.7', 'jhn14.27', 'php4.6-7', 'isa43.2', 'isa41.10', '1pe5.7', 'psa26.1-3']) {
     const p = PASSAGES[id];
     assert.ok(p, 'немає уривка ' + id);
     assert.equal(p.uk.status, 'verified', id);
@@ -209,4 +242,17 @@ test('усі потрібні події аналітики оголошені',
 
 test('демонстраційна транскрипція містить помилки рівня A2–B1', () => {
   assert.ok(/not know|stop to think|out from/.test(L.demoTranscript));
+});
+
+
+test('Псалом показує обидва номери — видання Огієнка нумерують по-різному', () => {
+  const p = PASSAGES['psa26.1-3'];
+  assert.ok(p.refUk.includes('26') && p.refUk.includes('27'), p.refUk);
+  assert.equal(p.refEn, 'Psalm 27:1, 3');
+  assert.ok(/нумерац/i.test(p.uk.verifiedNote), 'розбіжність нумерації має бути пояснена');
+});
+
+test('день 7 замикає маршрут: наступного дня немає', () => {
+  assert.equal(Math.max(...BUILT_DAYS), 7);
+  assert.equal(getLesson(8), null);
 });

@@ -9,7 +9,7 @@ import { RouteScreen } from '../screens/route-home.js';
 import { LessonScreen, stepsOf, splitSentences } from '../screens/lesson.js';
 import { CrisisScreen } from '../screens/crisis.js';
 import { SettingsScreen, PrivacyScreen, ProgressScreen } from '../screens/settings.js';
-import { getLesson, isDayUnlocked, nextDay, BUILT_DAYS } from '../content/lessons.js';
+import { getLesson, isDayUnlocked, nextDay, BUILT_DAYS, routeComplete } from '../content/lessons.js';
 
 const root = document.getElementById('root');
 const providers = getProviders();
@@ -166,10 +166,11 @@ function lessonCtx(lesson) {
     rerender: render,
     completedDays: done,
     savedPhrases: state.savedPhrases || [],
+    lessonsState: state.lessons || {},
     routeNote: upcoming
       ? `Пройдено ${new Set([...done, lesson.day]).size} із 7 днів. Наступний — день ${upcoming}.`
-      : `Пройдено ${new Set([...done, lesson.day]).size} із 7 днів. Дні 4–7 ще готуються.`,
-    nextDayLabel: upcoming ? `Далі: день ${upcoming}` : 'На головну',
+      : `Маршрут пройдено повністю — усі 7 днів.`,
+    nextDayLabel: upcoming ? `Далі: день ${upcoming}` : 'До підсумків маршруту',
     onFinish: () => {
       providers.tts.stop();
       if (upcoming) { ls = freshLesson(); ls.day = upcoming; track('lesson_started', { day: upcoming, mode: state.mode }); go('#/lesson/' + upcoming); }

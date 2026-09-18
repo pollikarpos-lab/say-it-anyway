@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Наскрізний прогін застосунку в headless Chromium + знімки екранів.
- * Проходить усі три написані дні підряд, як це робитиме людина.
+ * Проходить усі сім днів маршруту підряд, як це робитиме людина.
  * Запуск:  node scripts/serve.mjs 5173 ./dist &   node scripts/e2e.mjs
  */
 import { launch } from './cdp.mjs';
@@ -124,9 +124,9 @@ try {
   check('усі 7 днів у списку', [1,2,3,4,5,6,7].every(n => has(routeTxt, 'День ' + n)));
   check('день 1 доступний', has(routeTxt, 'Доступний зараз'));
   check('день 2 замкнений до проходження дня 1', has(routeTxt, 'Відкриється, коли пройдеш день 1'));
-  check('дні 6–7 позначені як «готується»', has(routeTxt, 'Ще готується'));
-  check('у маршруті п\'ять написаних днів',
-    await b.eval(`[...document.querySelectorAll('.day')].filter(d => !d.textContent.includes('Ще готується')).length === 5`));
+  check('усі 7 днів написані — жодного «готується»', !has(routeTxt, 'Ще готується'));
+  check('дні 2–7 замкнені до проходження попередніх',
+    await b.eval(`[...document.querySelectorAll('.day')].filter(d => d.disabled).length === 6`));
   check('клікабельний рівно один день',
     await b.eval(`[...document.querySelectorAll('.day')].filter(d => !d.disabled).length === 1`));
   await b.shot(SHOTS + '04-route.png', { full: true });
@@ -385,30 +385,99 @@ try {
   await b.eval(clickText('Зберегти мою фразу')); await wait(500);
   const d5done = await b.eval(text());
   check('д5: урок завершено', has(d5done, 'День 5 — пройдено'));
-  check('д5: далі написаних днів немає — кнопка на головну', has(d5done, 'На головну'));
+  check('д5: кнопка веде на день 6', has(d5done, 'Далі: день 6'));
   await b.shot(SHOTS + '41-day5-complete.png', { full: true });
 
-  /* ═══════════ Маршрут після п'яти днів ═══════════ */
-  await b.eval(clickText('На головну')); await wait(400);
+  /* ═══════════════════════════════════════════
+     ДЕНЬ 6 — сказати іншій людині
+     ═══════════════════════════════════════════ */
+  await b.eval(clickText('Далі: день 6')); await wait(500);
+  check('день 6 відкрився', await b.eval(`window.__SIA__.lesson.day === 6`));
+  await b.eval(clickText('Почати')); await wait(250);
+  check('д6: запитання про те, що носиш сам', has(await b.eval(text()), 'ніхто не просив нести'));
+  await b.eval(clickText('Далі')); await wait(250);
+  check('д6: уривок 1 Петра 5:7 звірений', has(await b.eval(text()), 'всю вашу журбу'));
+  await b.eval(clickText('Тепер англійською')); await wait(250);
+  check('д6: BSB', has(await b.eval(text()), 'Cast all your anxiety'));
+  await b.eval(clickText('Далі')); await wait(250);
+  check('д6: контекст пояснює різкість «cast»', has(await b.eval(text()), 'жбурнути'));
+  await b.shot(SHOTS + '42-day6-context.png', { full: true });
+
+  await walkOpenDay(6, {
+    shotPrefix: '43-day6',
+    expectCorrection: "doesn't",
+    expectInProof: ['carrying this alone', 'tell her'],
+    nextLabel: 'Далі: день 7',
+  });
+
+  /* ═══════════════════════════════════════════
+     ДЕНЬ 7 — монолог і порівняння
+     ═══════════════════════════════════════════ */
+  await b.eval(clickText('Далі: день 7')); await wait(500);
+  check('день 7 відкрився', await b.eval(`window.__SIA__.lesson.day === 7`));
+  const d7intro = await b.eval(text());
+  check('д7: це монолог, найдовша відповідь', has(d7intro, 'Монолог 60–90 секунд'));
+  check('д7: обіцяє порівняння з днем 3', has(d7intro, 'Порівняння з твоєю відповіддю в день 3'));
+  await b.shot(SHOTS + '44-day7-intro.png', { full: true });
+
+  await b.eval(clickText('Почати')); await wait(250);
+  check('д7: запитання про тиждень і про завтра', has(await b.eval(text()), 'тиждень тому'));
+  await b.eval(clickText('Далі')); await wait(250);
+  const d7uk = await b.eval(text());
+  check('д7: Псалом звірений', has(d7uk, 'Господь моє світло й спасіння моє'));
+  check('д7: показані ОБИДВА номери псалма', has(d7uk, 'Псалом 26 (27)'));
+  check('д7: розбіжність нумерації пояснена', has(d7uk, 'нумерацію'));
+  await b.shot(SHOTS + '45-day7-scripture.png', { full: true });
+  await b.eval(clickText('Тепер англійською')); await wait(250);
+  const d7en = await b.eval(text());
+  check('д7: BSB Psalm 27', has(d7en, 'my light and my salvation'));
+  check('д7: англійське посилання — Psalm 27', has(d7en, 'Psalm 27:1, 3'));
+  await b.eval(clickText('Далі')); await wait(250);
+  check('д7: контекст про «боюся, але стою»', has(await b.eval(text()), 'боюся, але стою'));
+
+  await walkOpenDay(7, {
+    shotPrefix: '46-day7',
+    expectCorrection: "couldn't",
+    expectInProof: ['A week ago', 'Now I can', 'still working on it'],
+    nextLabel: 'До підсумків маршруту',
+  });
+
+  const d7done = await b.eval(text());
+  check('д7: є блок порівняння «День 3 → День 7»', has(d7done, 'День 3 → День 7'));
+  check('д7: показані секунди обох днів', has(d7done, 'секунд у день 3') && has(d7done, 'секунд сьогодні'));
+  check('д7: є пара речень день 3 ↔ сьогодні',
+    await b.eval(`document.querySelectorAll('.thought--original').length >= 1 && document.querySelectorAll('.thought--improved').length >= 1`));
+  check('д7: маршрут позначено пройденим повністю', has(d7done, 'Маршрут пройдено повністю'));
+  check('д7: усі 7 крапок маршруту засвічені',
+    await b.eval(`document.querySelectorAll('.route-dots i.on').length === 7`));
+  await b.shot(SHOTS + '47-day7-comparison.png', { full: true });
+
+  /* ═══════════ Маршрут після семи днів ═══════════ */
+  await b.eval(clickText('До підсумків маршруту')); await wait(450);
   const routeAfter = await b.eval(text());
-  check('усі п\'ять днів позначені пройденими',
-    await b.eval(`document.querySelectorAll('.day.is-done').length === 5`));
-  check('дні 6–7 лишаються закритими', has(routeAfter, 'Ще готується'));
-  await b.shot(SHOTS + '42-route-done.png', { full: true });
+  check('усі сім днів позначені пройденими',
+    await b.eval(`document.querySelectorAll('.day.is-done').length === 7`));
+  check('головна показує стан «маршрут пройдено»', has(routeAfter, 'Маршрут пройдено'));
+  check('показано сумарний час мовлення', has(routeAfter, 'Разом ти говорив англійською'));
+  check('пройдений день можна відкрити знову',
+    await b.eval(`[...document.querySelectorAll('.day')].filter(d => !d.disabled).length === 7`));
+  await b.shot(SHOTS + '48-route-complete.png', { full: true });
 
   /* ═══════════ Перезавантаження ═══════════ */
   await b.goto(URL_BASE); await wait(600);
   const afterReload = await b.eval(text());
-  check('після перезавантаження — маршрут, а не лендинг', has(afterReload, 'Твій маршрут на 7 днів'));
-  check('прогрес п\'яти днів пережив перезавантаження',
-    await b.eval(`window.__SIA__.state.completedDays.length === 5`));
+  check('після перезавантаження — маршрут, а не лендинг',
+    has(afterReload, 'Маршрут пройдено') || has(afterReload, 'Твій маршрут на 7 днів'));
+  check('стан завершеного маршруту пережив перезавантаження', has(afterReload, 'Маршрут пройдено'));
+  check('прогрес семи днів пережив перезавантаження',
+    await b.eval(`window.__SIA__.state.completedDays.length === 7`));
   check('ім\'я збережено', has(afterReload, 'Олег'));
 
   /* ═══════════ Прогрес ═══════════ */
   await b.eval(clickText('Мій прогрес')); await wait(400);
   const prog = await b.eval(text());
   check('екран прогресу', has(prog, 'із семи днів пройдено'));
-  check('прогрес рахує п\'ять днів', has(prog, '5'));
+  check('прогрес рахує сім днів', has(prog, '7'));
   check('збережені фрази на місці', has(prog, 'Збережені фрази') && !has(prog, 'Поки що порожньо'));
   check('чесно про базу порівняння', has(prog, 'днем 3 і днем 7'));
   await b.shot(SHOTS + '50-progress.png', { full: true });
@@ -510,6 +579,6 @@ try {
 
 console.log(`\n────────────────────────────\nPASS: ${pass}   FAIL: ${fail}\n`);
 writeFileSync(new URL('../TEST_RESULTS.txt', import.meta.url).pathname,
-  `Наскрізний прогін — ${new Date().toISOString()}\nChromium headless, 390×844 @2x\nПройдено всі три написані дні підряд.\n\n` +
+  `Наскрізний прогін — ${new Date().toISOString()}\nChromium headless, 390×844 @2x\nПройдено всі сім днів маршруту підряд.\n\n` +
   results.join('\n') + `\n\nPASS: ${pass}   FAIL: ${fail}\n`);
 process.exit(fail ? 1 : 0);

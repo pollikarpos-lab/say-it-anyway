@@ -48,8 +48,9 @@ export function LessonScreen(ctx) {
             h('span', { style: { fontWeight: 400, fontSize: '.92rem' } }, t))),
         ),
         recallCard(ctx),
-        h('p.caption', L.kind === 'shadowing'
-          ? 'Приблизно 6 хвилин. Можна зупинитися будь-коли — прогрес збережеться.'
+        h('p.caption',
+          L.kind === 'shadowing' ? 'Приблизно 6 хвилин. Можна зупинитися будь-коли — прогрес збережеться.'
+          : L.kind === 'monologue' ? 'Приблизно 12 хвилин — сьогодні відповідь довша. Можна зупинитися будь-коли.'
           : 'Приблизно 9 хвилин. Можна зупинитися будь-коли — прогрес збережеться.'),
       ], actionbar(primaryBtn('Почати', next, { arrow: '→' })));
 
@@ -187,6 +188,12 @@ function planOf(L) {
     'Уривок українською та англійською, з аудіо',
     'Три короткі фрази, які легко сказати',
     'Ти слухаєш і повторюєш уголос — без розбору й оцінки',
+  ];
+  if (L.kind === 'monologue') return [
+    'Уривок українською та англійською, з аудіо',
+    'Три конструкції, якими зв\'язують розповідь',
+    'Монолог 60–90 секунд — найдовша відповідь маршруту',
+    'Порівняння з твоєю відповіддю в день 3',
   ];
   if (L.kind === 'template') return [
     'Уривок українською та англійською, з аудіо',
@@ -692,6 +699,57 @@ function improvedStep(ctx, page, next) {
   ));
 }
 
+/**
+ * День 7 проти дня 3 — дві однакові відкриті відповіді з різницею в тиждень.
+ * Порівнюємо тільки їх: порівнювати повторення за диктором із монологом
+ * було б нечесно, і це сказано прямо.
+ */
+function comparisonBlock(ctx, secsNow) {
+  const d3 = (ctx.lessonsState && ctx.lessonsState['3']) || null;
+  const secsThen = d3 && d3.speechMs ? Math.round(d3.speechMs / 1000) : null;
+  const phraseThen = (ctx.savedPhrases || []).filter(p => p.day === 3).slice(-1)[0];
+  const phraseNow = ctx.ls.savedPhrase;
+
+  if (!d3 && !phraseThen) {
+    return h('.card',
+      h('p.eyebrow', 'Порівняння з днем 3'),
+      h('p.tiny', { style: { marginBottom: 0 } },
+        'Дані дня 3 не знайдені — схоже, той день проходили на іншому пристрої або дані вже видалені. Порівняти нема з чим, але сьогоднішня відповідь від цього не гірша.'),
+    );
+  }
+
+  const delta = (secsThen != null && secsNow != null)
+    ? Math.round(((secsNow - secsThen) / Math.max(secsThen, 1)) * 100) : null;
+
+  return h('div',
+    h('.card',
+      h('p.eyebrow', 'День 3 → День 7'),
+      h('.metric-row', { style: { marginBottom: '0' } },
+        h('.metric',
+          h('b', secsThen != null ? secsThen : '—'),
+          h('span', 'секунд у день 3')),
+        h('.metric',
+          h('b', secsNow != null ? secsNow : '—'),
+          h('span', 'секунд сьогодні')),
+      ),
+      delta != null ? h('p.caption', { style: { marginTop: '12px', marginBottom: 0 } },
+        delta > 0
+          ? `Сьогодні ти говорив на ${delta}% довше, ніж чотири дні тому.`
+          : delta === 0
+            ? 'Тривалість та сама. Дивись не на секунди, а на речення нижче.'
+            : 'Сьогодні коротше — і це нормально: коротко сказати складніше, ніж довго.')
+        : h('p.caption', { style: { marginTop: '12px', marginBottom: 0 } },
+            'Один із днів пройдено текстом, тож секунди не порівнюємо.'),
+    ),
+    (phraseThen && phraseNow) ? thoughtPair({
+      original: phraseThen.text, improved: phraseNow,
+      originalLabel: 'Твоє речення в день 3',
+      improvedLabel: 'Твоє речення сьогодні',
+      note: 'Між ними — чотири дні й п\'ять розмов уголос.',
+    }) : null,
+  );
+}
+
 function usedConstructions(L, used, { compact = false } = {}) {
   const hit = L.targets.filter(t => used.includes(t.id));
   const rest = L.targets.filter(t => !used.includes(t.id));
@@ -793,11 +851,13 @@ function completeStep(ctx, page) {
       h('p.eyebrow', 'Один крок на сьогодні'),
       h('p', { style: { marginBottom: 0, fontSize: '.95rem' } }, L.step[ctx.mode] || L.step.open)),
 
+    L.kind === 'monologue' ? comparisonBlock(ctx, secs) : null,
+
     h('.card',
       h('p.eyebrow', 'Маршрут'),
       h('p.tiny', { style: { marginBottom: '4px' } }, ctx.routeNote),
       h('.route-dots', ...Array.from({ length: 7 }, (_, i) =>
-        h('i' + (ctx.completedDays.includes(i + 1) ? '.on' : i + 1 === L.day ? '.now' : '')))),
+        h('i' + (ctx.completedDays.includes(i + 1) || i + 1 === L.day ? '.on' : '')))),
     ),
   ], actionbar(primaryBtn(ctx.nextDayLabel || 'На головну', ctx.onFinish || ctx.onExit, { arrow: '→' })));
 }

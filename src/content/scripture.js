@@ -194,4 +194,74 @@ PASSAGES['isa41.10'] = {
   },
 };
 
+
+/* ── День 6 ── */
+PASSAGES['1pe5.7'] = {
+  id: '1pe5.7',
+  refUk: 'І Петра 5:7',
+  refEn: '1 Peter 5:7',
+  uk: {
+    status: 'verified',
+    translation: 'OHIENKO',
+    verses: [
+      { n: 7, text: 'Покладіть на Нього всю вашу журбу, бо Він опікується вами!' },
+    ],
+    verifiedAgainst: [
+      { source: 'bible.com, переклад UBIO (Огієнко)', date: '2026-09-18' },
+      { source: 'only.bible — Біблія в пер. Івана Огієнка', date: '2026-09-18' },
+    ],
+    verifiedNote: 'Обидва джерела дали ідентичний текст.',
+  },
+  en: {
+    status: 'verified',
+    translation: 'BSB',
+    verses: [
+      { n: 7, text: 'Cast all your anxiety on Him, because He cares for you.' },
+    ],
+    verifiedAgainst: [{ source: 'biblehub.com/bsb — 1 Peter 5', date: '2026-09-14' }],
+    verifiedNote: 'Звірено дослівно.',
+  },
+  context: {
+    author: 'Редакторський коментар (людина)',
+    body: 'Петро пише християнам, які живуть під переслідуванням — людям, у яких є реальні підстави триматися й не скаржитися. Англійське «cast» тут різке й фізичне: жбурнути з себе, а не акуратно передати з рук у руки. Українське «покладіть» звучить м\'якше, ніж в оригіналі.',
+    caution: 'Це не про те, щоб перестати відповідати за своє життя. Це про те, що нести все самому — не чеснота, а звичка, якої ніхто від тебе не вимагав.',
+  },
+};
+
+/* ── День 7 ── */
+PASSAGES['psa26.1-3'] = {
+  id: 'psa26.1-3',
+  refUk: 'Псалом 26 (27):1, 3',
+  refEn: 'Psalm 27:1, 3',
+  uk: {
+    status: 'verified',
+    translation: 'OHIENKO',
+    verses: [
+      { n: 1, text: 'Давидів. Господь моє світло й спасіння моє, кого буду боятись? Господь то твердиня мого життя, кого буду лякатись?' },
+      { n: 3, text: 'Коли проти мене розложиться табір, то серце моє не злякається, коли проти мене повстане війна, я надіятись буду на те, на поміч Його!' },
+    ],
+    verifiedAgainst: [
+      { source: 'bible.com, UBIO — «ПСАЛОМ 26 (27)»', date: '2026-09-18' },
+      { source: 'wordproject.org — Псалом 27', date: '2026-09-18' },
+      { source: 'only.bible — Псалом 27 (вірш 1)', date: '2026-09-18' },
+    ],
+    verifiedNote: 'Увага на нумерацію: видання Огієнка нумерують псалми по-різному. bible.com друкує «ПСАЛОМ 26 (27)» — септуагінтна нумерація з масоретською в дужках; only.bible і wordproject подають той самий текст як Псалом 27. Тому в застосунку показані обидва номери. Текст вірша 1 звірено з трьома джерелами, вірша 3 — з двома.',
+  },
+  en: {
+    status: 'verified',
+    translation: 'BSB',
+    verses: [
+      { n: 1, text: 'The LORD is my light and my salvation — whom shall I fear? The LORD is the stronghold of my life — whom shall I dread?' },
+      { n: 3, text: 'Though an army encamps around me, my heart will not fear; though a war breaks out against me, I will be confident.' },
+    ],
+    verifiedAgainst: [{ source: 'biblehub.com/bsb — Psalm 27', date: '2026-09-14' }],
+    verifiedNote: 'Звірено дослівно.',
+  },
+  context: {
+    author: 'Редакторський коментар (людина)',
+    body: 'Давид пише це не з безпечного місця. «Табір», «війна» — не метафори з красивого вірша, а те, що з ним справді відбувалося. І питання «кого буду боятись?» тут не означає, що страху немає. Воно означає, що страх більше не вирішує, що робити далі.',
+    caution: 'Цей текст не обіцяє, що табору не буде. Він про те, ким ти стоїш перед ним. Різниця між «не боюся» і «боюся, але стою» — і є весь цей маршрут.',
+  },
+};
+
 export function getPassage(id) { return PASSAGES[id]; }

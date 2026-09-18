@@ -3,9 +3,19 @@ import { LESSON_DAY2 } from './lesson-day2.js';
 import { LESSON_DAY3 } from './lesson-day3.js';
 import { LESSON_DAY4 } from './lesson-day4.js';
 import { LESSON_DAY5 } from './lesson-day5.js';
+import { LESSON_DAY6 } from './lesson-day6.js';
+import { LESSON_DAY7 } from './lesson-day7.js';
 
-export const LESSONS = { 1: LESSON_DAY1, 2: LESSON_DAY2, 3: LESSON_DAY3, 4: LESSON_DAY4, 5: LESSON_DAY5 };
-export const BUILT_DAYS = [1, 2, 3, 4, 5];
+export const LESSONS = {
+  1: LESSON_DAY1, 2: LESSON_DAY2, 3: LESSON_DAY3, 4: LESSON_DAY4,
+  5: LESSON_DAY5, 6: LESSON_DAY6, 7: LESSON_DAY7,
+};
+export const BUILT_DAYS = [1, 2, 3, 4, 5, 6, 7];
+
+/** Увесь маршрут пройдено. */
+export function routeComplete(completedDays = []) {
+  return BUILT_DAYS.every(d => completedDays.includes(d));
+}
 
 export function getLesson(day) { return LESSONS[Number(day)] || null; }
 

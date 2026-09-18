@@ -207,6 +207,6 @@ export function mockBadge(text) {
 export function siteFoot() {
   return h('.site-foot',
     h('span', 'Маленький крок. Своїм голосом.'),
-    h('span', 'Say It Anyway · v0.4'),
+    h('span', 'Say It Anyway · v0.5'),
   );
 }

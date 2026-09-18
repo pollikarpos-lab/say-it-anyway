@@ -3,7 +3,7 @@
 ## Найкоротший шлях
 
 ```bash
-unzip say-it-anyway-v0.4.zip
+unzip say-it-anyway-v0.5.zip
 cd say-it-anyway-claude
 npm run dev
 ```
