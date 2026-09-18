@@ -11,18 +11,49 @@ export function micSupported() {
 
 /** Причини відмови, які треба показувати по-різному. */
 export const MIC_ERRORS = {
-  UNSUPPORTED: 'unsupported',   // немає API (старий браузер / iframe без дозволу)
-  DENIED: 'denied',             // користувач або політика заборонили
+  UNSUPPORTED: 'unsupported',   // немає API (старий браузер)
+  DENIED: 'denied',             // користувач або налаштування сайту заборонили
+  EMBEDDED: 'embedded',         // сторінка у вбудованому вікні, яке не передає дозвіл
   NOTFOUND: 'notfound',         // немає мікрофона
   OTHER: 'other',
 };
 
+/** Сторінка відкрита всередині чужого вікна (прев'ю, артефакт, вбудований блок). */
+export function inEmbeddedFrame() {
+  try { return window.self !== window.top; }
+  catch { return true; }   // доступ до window.top кинув виняток — значить, рамка чужа
+}
+
+/**
+ * Чи рамка точно не передає дозвіл на мікрофон.
+ * true / false там, де браузер дає це спитати; null — невідомо (Safari).
+ */
+export function framePolicyBlocksMic() {
+  try {
+    const fp = document.featurePolicy || document.permissionsPolicy;
+    if (fp && typeof fp.allowsFeature === 'function') return !fp.allowsFeature('microphone');
+  } catch {}
+  return null;
+}
+
 export function classifyMicError(err) {
   if (!err) return MIC_ERRORS.OTHER;
   const n = err.name || '';
-  if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError') return MIC_ERRORS.DENIED;
+  if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError') {
+    // Та сама помилка означає дві різні речі. Якщо сторінка у вбудованому
+    // вікні, найімовірніше заборонила саме рамка, а не людина: системного
+    // запиту при цьому не було, і в налаштуваннях Safari цього не змінити.
+    // Відправляти людину в налаштування сайту в такому разі — це відправляти
+    // її туди, де вона нічого не знайде.
+    const blocked = framePolicyBlocksMic();
+    if (blocked === true) return MIC_ERRORS.EMBEDDED;
+    if (blocked === false) return MIC_ERRORS.DENIED;   // рамка дозвіл передає — отже, відхилила людина
+    return inEmbeddedFrame() ? MIC_ERRORS.EMBEDDED : MIC_ERRORS.DENIED;
+  }
   if (n === 'NotFoundError' || n === 'DevicesNotFoundError' || n === 'OverconstrainedError') return MIC_ERRORS.NOTFOUND;
-  if (n === 'NotSupportedError' || n === 'TypeError') return MIC_ERRORS.UNSUPPORTED;
+  if (n === 'NotSupportedError' || n === 'TypeError') {
+    return inEmbeddedFrame() ? MIC_ERRORS.EMBEDDED : MIC_ERRORS.UNSUPPORTED;
+  }
   return MIC_ERRORS.OTHER;
 }
 
