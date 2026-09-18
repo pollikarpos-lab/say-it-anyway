@@ -20,7 +20,25 @@ const ENTRY = 'src/app/app.js';
 /* ---------- 1. простий статичний білд ---------- */
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
-for (const f of ['index.html', 'config.js', 'sw.js']) cpSync(join(ROOT, f), join(DIST, f));
+for (const f of ['index.html', 'config.js']) cpSync(join(ROOT, f), join(DIST, f));
+
+// sw.js копіюється НЕ як є: у нього штампується версія збірки.
+// Без цього ім'я кешу лишається незмінним між версіями, і стара оболонка
+// може пережити викочування нової — саме так стара збірка на localhost
+// затуляла нову близько години 18.09.2026. Нове ім'я кешу означає, що
+// activate-обробник вимете все попереднє.
+{
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  const stamp = `${pkg.version}-${Date.now().toString(36)}`;
+  const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8')
+    .replace(/const CACHE = '[^']*';/, `const CACHE = 'sia-${stamp}';`);
+  if (!sw.includes(`sia-${stamp}`)) {
+    console.error('ПОМИЛКА: не вдалося проштампувати версію в sw.js — рядок CACHE не знайдено.');
+    process.exit(1);
+  }
+  writeFileSync(join(DIST, 'sw.js'), sw);
+  console.log(`sw.js            — кеш sia-${stamp}`);
+}
 cpSync(join(ROOT, 'src'), join(DIST, 'src'), { recursive: true });
 cpSync(join(ROOT, 'public'), join(DIST, 'public'), { recursive: true });
 
