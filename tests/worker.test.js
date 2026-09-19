@@ -3,7 +3,7 @@
 // від того, що поверне модель.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMessages, parseAnalysis } from '../worker/prompt.js';
+import { buildMessages, parseAnalysis, extractText, buildRequestBody } from '../worker/prompt.js';
 
 const { default: worker } = await import('../worker/index.js');
 
@@ -23,8 +23,9 @@ async function withUpstream(reply, fn) {
   try { return await fn(); }
   finally { globalThis.fetch = real; console.error = quiet; }
 }
+// Підставна відповідь у формі /v1/responses — саме її тепер питає Worker.
 const llmReply = (content) => () => new Response(JSON.stringify({
-  choices: [{ message: { content } }],
+  output: [{ type: 'message', content: [{ type: 'output_text', text: content }] }],
 }), { status: 200, headers: { 'content-type': 'application/json' } });
 
 test('без ключа сервер каже про це прямо, а не вдає розбір', async () => {
@@ -127,4 +128,68 @@ test('назву моделі можна змінити змінною сере�
     await worker.fetch(post('/api/analyze', { transcript: 'hi', targets: [] }), { ...ENV, LLM_MODEL: 'зовсім-інша-модель' });
   } finally { globalThis.fetch = real; }
   assert.equal(sent.model, 'зовсім-інша-модель');
+});
+
+test('невідома адреса розпізнавання називається прямо', async () => {
+  const fd = new FormData();
+  fd.append('audio', new Blob(['x'], { type: 'audio/webm' }), 'a.webm');
+  const req = new Request('https://example.com/api/stt', { method: 'POST', body: fd });
+  const res = await withUpstream(() => new Response('{}', { status: 404 }), () => worker.fetch(req, ENV));
+  assert.equal((await res.json()).error, 'bad_stt');
+});
+
+test('відмова в дозволі на розпізнавання не плутається зі збоєм', async () => {
+  const fd = new FormData();
+  fd.append('audio', new Blob(['x'], { type: 'audio/webm' }), 'a.webm');
+  const req = new Request('https://example.com/api/stt', { method: 'POST', body: fd });
+  const res = await withUpstream(() => new Response('{}', { status: 403 }), () => worker.fetch(req, ENV));
+  assert.equal((await res.json()).error, 'stt_forbidden');
+});
+
+/* Два інтерфейси OpenAI: старий /chat/completions і новіший /responses.
+   Який із них доступний — залежить від акаунта, тож Worker має розуміти
+   обидва, а не вгадувати один. */
+
+test('відповідь у формі /responses читається', () => {
+  assert.equal(extractText({ output: [{ content: [{ text: 'привіт' }] }] }), 'привіт');
+  assert.equal(extractText({ output_text: 'привіт' }), 'привіт');
+});
+
+test('відповідь у старій формі /chat/completions теж читається', () => {
+  assert.equal(extractText({ choices: [{ message: { content: 'привіт' } }] }), 'привіт');
+});
+
+test('незнайома форма відповіді дає порожнє, а не викидає виняток', () => {
+  assert.equal(extractText({ щось: 'інше' }), '');
+  assert.equal(extractText(null), '');
+});
+
+test('тіло запиту добирається за адресою', () => {
+  const msgs = [{ role: 'system', content: 'СИС' }, { role: 'user', content: 'ЮЗЕР' }];
+  const r = buildRequestBody({ path: '/responses', model: 'm', messages: msgs });
+  assert.equal(r.instructions, 'СИС');
+  assert.equal(r.input, 'ЮЗЕР');
+  assert.ok(!r.messages, '/responses не приймає messages');
+
+  const c = buildRequestBody({ path: '/chat/completions', model: 'm', messages: msgs });
+  assert.equal(c.messages.length, 2);
+  assert.ok(!c.instructions, '/chat/completions не приймає instructions');
+});
+
+test('порожня відповідь моделі — це помилка, а не порожній розбір', async () => {
+  const res = await withUpstream(
+    () => new Response(JSON.stringify({ output: [] }), { status: 200 }),
+    () => worker.fetch(post('/api/analyze', { transcript: 'hi', targets: [] }), ENV));
+  assert.equal(res.status, 502);
+});
+
+test('старий інтерфейс працює, якщо вказати його явно', async () => {
+  const chatReply = () => new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({ corrections: [], improved: 'I am fine.', usedTargets: [], totalFound: 0 }) } }],
+  }), { status: 200 });
+  const res = await withUpstream(chatReply, () => worker.fetch(
+    post('/api/analyze', { transcript: 'I am fine.', targets: [] }),
+    { ...ENV, LLM_PATH: '/chat/completions' }));
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).improved, 'I am fine.');
 });

@@ -8,7 +8,7 @@
 // обслуговують assets із wrangler.jsonc. Тому фронтенд і бекенд на одному
 // домені — без CORS і без окремого сервера.
 
-import { buildMessages, parseAnalysis } from './prompt.js';
+import { buildMessages, parseAnalysis, extractText, buildRequestBody } from './prompt.js';
 import { filterAiOutput } from '../src/lib/safety.js';
 
 const OPENAI = 'https://api.openai.com/v1';
@@ -22,6 +22,20 @@ const OPENAI = 'https://api.openai.com/v1';
 // перейменує — вписати нову назву буде питанням однієї хвилини.
 const DEFAULT_STT_MODEL = 'whisper-1';
 const DEFAULT_LLM_MODEL = 'gpt-5.4-mini';
+
+// Шлях до розпізнавання теж винесено в env. Причина конкретна: у списку
+// дозволів акаунта (19.09.2026) є рядок для /v1/audio/speech, але немає
+// для /v1/audio/transcriptions. Тобто адреса могла змінитися відтоді, як
+// я її вивчив. Якщо так — це правиться змінною STT_PATH в інтерфейсі
+// Cloudflare, без зміни коду й без нової збірки.
+const DEFAULT_STT_PATH = '/audio/transcriptions';
+
+// За замовчуванням — новіший /responses: у списку дозволів акаунта
+// (19.09.2026) рядок Chat completions неактивний, а Responses доступний.
+// Обидва інтерфейси підтримані, форма запиту й розбір відповіді
+// добираються за шляхом. Якщо вгадано неправильно — правиться змінною
+// LLM_PATH, без коду й без нової збірки.
+const DEFAULT_LLM_PATH = '/responses';
 
 // Межі — це не оптимізація, а захист гаманця. Ендпоінт публічний, і за
 // кожен запит платить власник ключа. Місячний ліміт в OpenAI лишається
@@ -58,7 +72,7 @@ async function handleStt(request, env) {
   out.append('model', env.STT_MODEL || DEFAULT_STT_MODEL);
   out.append('language', String(form.get('lang') || 'en'));
 
-  const res = await fetch(`${OPENAI}/audio/transcriptions`, {
+  const res = await fetch(`${OPENAI}${env.STT_PATH || DEFAULT_STT_PATH}`, {
     method: 'POST',
     headers: { authorization: `Bearer ${env.OPENAI_API_KEY}` },
     body: out,
@@ -66,6 +80,14 @@ async function handleStt(request, env) {
   if (!res.ok) {
     // Статус — так, тіло відповіді — ні: у ньому бувають фрагменти запиту.
     console.error('stt_upstream_failed', res.status);
+    if (res.status === 404) {
+      console.error('stt_endpoint_unknown', env.STT_PATH || DEFAULT_STT_PATH, env.STT_MODEL || DEFAULT_STT_MODEL);
+      return fail('bad_stt', 'Розпізнавання не знайдене — перевірте адресу й назву моделі в налаштуваннях.', 502);
+    }
+    if (res.status === 401 || res.status === 403) {
+      console.error('stt_forbidden', res.status);
+      return fail('stt_forbidden', 'Ключ не має дозволу на розпізнавання мовлення.', 502);
+    }
     return fail('stt_failed', 'Не вдалося розпізнати запис.', 502);
   }
   const data = await res.json();
@@ -86,19 +108,18 @@ async function handleAnalyze(request, env) {
   const targets = Array.isArray(body.targets) ? body.targets : [];
   const messages = buildMessages({ transcript, targets, level: body.level || 'A2-B1' });
 
-  const res = await fetch(`${OPENAI}/chat/completions`, {
+  const path = env.LLM_PATH || DEFAULT_LLM_PATH;
+  const res = await fetch(`${OPENAI}${path}`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${env.OPENAI_API_KEY}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
+    body: JSON.stringify(buildRequestBody({
+      path,
       model: env.LLM_MODEL || DEFAULT_LLM_MODEL,
       messages,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-      max_tokens: 900,
-    }),
+    })),
   });
   if (!res.ok) {
     console.error('llm_upstream_failed', res.status);
@@ -106,14 +127,22 @@ async function handleAnalyze(request, env) {
     // такою назвою немає. Це помилка налаштування, а не збій, і вона має
     // читатися в логах одразу, без здогадок.
     if (res.status === 404) {
-      console.error('llm_model_unknown', env.LLM_MODEL || DEFAULT_LLM_MODEL);
-      return fail('bad_model', 'Модель для розбору не знайдена — перевірте назву в налаштуваннях.', 502);
+      console.error('llm_endpoint_or_model_unknown', path, env.LLM_MODEL || DEFAULT_LLM_MODEL);
+      return fail('bad_model', 'Модель або адреса розбору не знайдені — перевірте LLM_PATH і LLM_MODEL.', 502);
+    }
+    if (res.status === 401 || res.status === 403) {
+      console.error('llm_forbidden', res.status, path);
+      return fail('llm_forbidden', 'Ключ не має дозволу на цей спосіб розбору.', 502);
     }
     return fail('analyze_failed', 'Розбір не вдався.', 502);
   }
 
   const data = await res.json();
-  const content = data.choices && data.choices[0] && data.choices[0].message.content;
+  const content = extractText(data);
+  if (!content) {
+    console.error('llm_empty_response', path);
+    return fail('analyze_failed', 'Розбір не вдався.', 502);
+  }
 
   let parsed;
   try {

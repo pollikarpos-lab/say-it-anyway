@@ -83,3 +83,56 @@ export function parseAnalysis(raw, { transcript, targets = [] }) {
 
   return { corrections, improved, usedTargets, totalFound, transcript };
 }
+
+
+/**
+ * Витягує текст відповіді, не знаючи заздалегідь, який саме інтерфейс
+ * відповів. OpenAI має два: старий /chat/completions і новіший
+ * /responses, і форми відповіді в них різні. Кутись гадати, який із них
+ * доступний на конкретному акаунті, — марно: краще розуміти обидва.
+ */
+export function extractText(data) {
+  if (!data || typeof data !== 'object') return '';
+
+  // /v1/responses — зручне поле, якщо є
+  if (typeof data.output_text === 'string' && data.output_text.trim()) {
+    return data.output_text;
+  }
+  // /v1/responses — повна форма: output[].content[].text
+  if (Array.isArray(data.output)) {
+    const parts = [];
+    for (const item of data.output) {
+      for (const c of (item && Array.isArray(item.content) ? item.content : [])) {
+        if (c && typeof c.text === 'string') parts.push(c.text);
+      }
+    }
+    if (parts.length) return parts.join('');
+  }
+  // /v1/chat/completions — стара форма
+  const msg = data.choices && data.choices[0] && data.choices[0].message;
+  if (msg && typeof msg.content === 'string') return msg.content;
+
+  return '';
+}
+
+/** Тіло запиту під той інтерфейс, який насправді доступний. */
+export function buildRequestBody({ path, model, messages, maxTokens = 900 }) {
+  const isChat = String(path).includes('chat/completions');
+  if (isChat) {
+    return {
+      model, messages,
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+      max_tokens: maxTokens,
+    };
+  }
+  // /v1/responses: системна частина йде окремо в instructions
+  const system = messages.find(m => m.role === 'system');
+  const user = messages.find(m => m.role === 'user');
+  return {
+    model,
+    instructions: system ? system.content : undefined,
+    input: user ? user.content : '',
+    max_output_tokens: maxTokens,
+  };
+}
