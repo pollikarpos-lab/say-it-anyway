@@ -193,3 +193,9 @@ test('старий інтерфейс працює, якщо вказати йо
   assert.equal(res.status, 200);
   assert.equal((await res.json()).improved, 'I am fine.');
 });
+
+test('промпт вимагає короткий фрагмент правки, а не ціле речення', () => {
+  const sys = buildMessages({ transcript: 'x', targets: [] })[0].content;
+  assert.match(sys, /НАЙКОРОТШИЙ фрагмент/);
+  assert.match(sys, /Не ціле речення/);
+});
