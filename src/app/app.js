@@ -2,6 +2,7 @@ import { h, mount } from '../lib/dom.js';
 import * as store from '../lib/storage.js';
 import { track } from '../lib/analytics.js';
 import { getProviders, textAsTranscript } from '../providers/index.js';
+import { detectTargets } from '../providers/mock.js';
 import { detectCrisis } from '../lib/safety.js';
 import { LandingScreen } from '../screens/landing.js';
 import { OnboardingScreen, ModeScreen, ONBOARDING_QUESTIONS, ONBOARDING_TOTAL } from '../screens/onboarding.js';
@@ -280,6 +281,15 @@ async function afterTranscript(t, lesson) {
     ls.analysis = await providers.llm.analyze({
       transcript: t.text, targets: lesson.targets, level: 'A2-B1',
     });
+    // Ужиті конструкції рахуються ТІЛЬКИ по сирому тексту людини — і ТІЛЬКИ
+    // тут, у коді. Довіряти в цьому моделі не можна: на першому ж живому
+    // запиті (19.09.2026) вона зарахувала «I'm worried about» людині, яка
+    // сказала «I worried about» — тобто конструкцію, що з'явилася аж після
+    // її ж виправлення. Промпт це забороняв; модель заборону проігнорувала.
+    // Промпт — прохання, перевірка — код. Те саме правило, що й у дні 6.
+    if (ls.analysis) {
+      ls.analysis.usedTargets = detectTargets(t.text, lesson.targets || []);
+    }
   } catch (err) {
     // Тут була діра: провал розбору підміняв себе «порожнім розбором», і
     // далі екран показував текст користувача як покращену версію. Тобто

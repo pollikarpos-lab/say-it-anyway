@@ -154,3 +154,21 @@ test('законний минулий час лишається недоторк
   const r = await llm.analyze({ transcript: t, targets: [] });
   assert.equal(r.improved, t);
 });
+
+/* Знайдено на ПЕРШОМУ живому запиті до справжньої моделі, 19.09.2026.
+   Модель зарахувала «I'm worried about» людині, яка сказала «I worried
+   about»: конструкція з'явилася лише після її ж правки. Промпт це прямо
+   забороняв. Отже, метрика не може спиратися на слово моделі — тільки
+   на сирий текст і на код. */
+test('конструкція не зараховується, якщо в сирому тексті її немає', async () => {
+  const { detectTargets } = await import('../src/providers/mock.js');
+  const L3 = (await import('../src/content/lesson-day3.js')).LESSON_DAY3;
+
+  const raw = 'I worried about my work and I will called them tomorrow.';
+  assert.deepEqual(detectTargets(raw, L3.targets), [],
+    'у сирому тексті немає жодної цільової конструкції — має бути порожньо');
+
+  const fixed = "I'm worried about my work and I will call them tomorrow.";
+  assert.ok(detectTargets(fixed, L3.targets).includes('worried'),
+    'у виправленому тексті конструкція є — але зараховувати треба не його');
+});
