@@ -199,3 +199,53 @@ test('промпт вимагає короткий фрагмент правки
   assert.match(sys, /НАЙКОРОТШИЙ фрагмент/);
   assert.match(sys, /Не ціле речення/);
 });
+
+/* ───────── аналітика ─────────
+   Найважливіше тут не «чи записалася подія», а чи НЕ МОЖЕ в базу
+   потрапити текст відповіді. Клієнт підмінити може будь-хто, тож
+   перевіряється саме серверний фільтр. */
+
+const { sanitizeEvent } = await import('../worker/index.js');
+
+test('текст відповіді не проходить у подію навіть якщо його підсунути', () => {
+  const ev = sanitizeEvent({
+    name: 'lesson_completed', day: 3, at: 1,
+    transcript: 'I am worried about my owner, he is in hospital',
+    text: 'щось особисте', name_of_user: 'Олег', answer: 'приватне',
+  });
+  assert.deepEqual(Object.keys(ev.props), ['day'], 'дозволено тільки поля з білого списку');
+  assert.equal(JSON.stringify(ev).includes('hospital'), false);
+  assert.equal(JSON.stringify(ev).includes('Олег'), false);
+});
+
+test('довгий рядок у дозволеному полі теж відкидається', () => {
+  const ev = sanitizeEvent({ name: 'lesson_started', reason: 'ц'.repeat(41), at: 1 });
+  assert.equal(ev.props.reason, undefined);
+  const ok = sanitizeEvent({ name: 'lesson_started', reason: 'коротко', at: 1 });
+  assert.equal(ok.props.reason, 'коротко');
+});
+
+test('невідома назва події відкидається цілком', () => {
+  assert.equal(sanitizeEvent({ name: 'вигадана_подія', at: 1 }), null);
+  assert.equal(sanitizeEvent(null), null);
+  assert.equal(sanitizeEvent('рядок'), null);
+});
+
+test('вкладений об\'єкт не просочується в props', () => {
+  const ev = sanitizeEvent({ name: 'lesson_completed', day: { hidden: 'текст' }, at: 1 });
+  assert.equal(typeof ev.props.day, 'undefined');
+});
+
+test('статистика закрита ключем', async () => {
+  const withDb = { ...ENV, DB: {}, STATS_KEY: 'секрет' };
+  const noKey = await worker.fetch(new Request('https://example.com/stats'), withDb);
+  assert.equal(noKey.status, 401);
+  const wrong = await worker.fetch(new Request('https://example.com/stats?key=не-той'), withDb);
+  assert.equal(wrong.status, 401);
+});
+
+test('без сховища подій сервер каже про це прямо', async () => {
+  const res = await worker.fetch(post('/api/events', { device: 'd1', events: [] }), ENV);
+  assert.equal(res.status, 503);
+  assert.equal((await res.json()).error, 'no_db');
+});

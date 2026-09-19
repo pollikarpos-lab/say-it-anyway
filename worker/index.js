@@ -10,6 +10,8 @@
 
 import { buildMessages, parseAnalysis, extractText, buildRequestBody } from './prompt.js';
 import { filterAiOutput } from '../src/lib/safety.js';
+import { EVENTS, ALLOWED_PROPS } from '../src/lib/analytics.js';
+import { statsPage } from './stats.js';
 
 const OPENAI = 'https://api.openai.com/v1';
 
@@ -42,6 +44,7 @@ const DEFAULT_LLM_PATH = '/responses';
 // головним запобіжником, а це — перший бар'єр.
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024;   // ~60 секунд mp4/webm
 const MAX_TRANSCRIPT_CHARS = 2000;
+const MAX_EVENTS_PER_REQUEST = 100;
 
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
@@ -168,9 +171,83 @@ async function handleAnalyze(request, env) {
   });
 }
 
+
+/* ───────── аналітика ─────────
+   Той самий білий список, що й на клієнті, повторений тут. Не з
+   недовіри до свого ж коду, а тому, що клієнт — це чужий браузер:
+   підмінити його може будь-хто, і тоді єдиною перепоною лишається
+   сервер. Вільного тексту в базі не має бути за жодних обставин. */
+
+async function ensureTable(db) {
+  await db.exec(
+    'CREATE TABLE IF NOT EXISTS events (' +
+    'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
+    'device TEXT NOT NULL, name TEXT NOT NULL, day INTEGER, ' +
+    'props TEXT, at INTEGER NOT NULL, received INTEGER NOT NULL)'
+  );
+}
+
+/** Лишає з події тільки те, що дозволено. Решту мовчки відкидає. */
+export function sanitizeEvent(ev) {
+  if (!ev || typeof ev !== 'object') return null;
+  if (!EVENTS.includes(ev.name)) return null;
+  const props = {};
+  for (const [k, v] of Object.entries(ev)) {
+    if (k === 'name' || k === 'at') continue;
+    if (!ALLOWED_PROPS.has(k)) continue;
+    if (typeof v === 'string' && v.length > 40) continue;
+    if (typeof v === 'object') continue;
+    props[k] = v;
+  }
+  const at = Number(ev.at);
+  return {
+    name: ev.name,
+    day: Number.isFinite(Number(props.day)) ? Number(props.day) : null,
+    props,
+    at: Number.isFinite(at) ? at : Date.now(),
+  };
+}
+
+async function handleEvents(request, env) {
+  if (!env.DB) return fail('no_db', 'Сховище подій не налаштоване.', 503);
+
+  const body = await request.json().catch(() => null);
+  const device = String((body && body.device) || '').slice(0, 64);
+  const list = Array.isArray(body && body.events) ? body.events : [];
+  if (!device || !list.length) return fail('no_events', 'Порожній запит.');
+  if (list.length > MAX_EVENTS_PER_REQUEST) return fail('too_many', 'Забагато подій.', 413);
+
+  const clean = list.map(sanitizeEvent).filter(Boolean);
+  if (!clean.length) return json({ stored: 0, skipped: list.length });
+
+  await ensureTable(env.DB);
+  const now = Date.now();
+  const stmt = env.DB.prepare(
+    'INSERT INTO events (device, name, day, props, at, received) VALUES (?, ?, ?, ?, ?, ?)'
+  );
+  await env.DB.batch(clean.map(e =>
+    stmt.bind(device, e.name, e.day, JSON.stringify(e.props), e.at, now)
+  ));
+
+  return json({ stored: clean.length, skipped: list.length - clean.length });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Сторінка статистики для власника. Закрита ключем: інакше будь-хто
+    // за посиланням бачив би, скільки людей і де відвалюється.
+    if (url.pathname === '/stats') {
+      if (!env.DB) return fail('no_db', 'Сховище подій не налаштоване.', 503);
+      if (!env.STATS_KEY || url.searchParams.get('key') !== env.STATS_KEY) {
+        return new Response('Потрібен ключ: /stats?key=…', { status: 401 });
+      }
+      return new Response(await statsPage(env), {
+        headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+      });
+    }
+
     if (!url.pathname.startsWith('/api/')) {
       // Усе інше — статичний сайт. assets налаштовані у wrangler.jsonc.
       return env.ASSETS.fetch(request);
@@ -181,6 +258,7 @@ export default {
     try {
       if (url.pathname === '/api/stt') return await handleStt(request, env);
       if (url.pathname === '/api/analyze') return await handleAnalyze(request, env);
+      if (url.pathname === '/api/events') return await handleEvents(request, env);
       return fail('not_found', 'Немає такого методу.', 404);
     } catch (err) {
       // Текст користувача в лог не пишеться ніколи — тільки тип помилки.

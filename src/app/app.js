@@ -1,6 +1,6 @@
 import { h, mount } from '../lib/dom.js';
 import * as store from '../lib/storage.js';
-import { track } from '../lib/analytics.js';
+import { track, flush, clearDevice } from '../lib/analytics.js';
 import { getProviders, textAsTranscript } from '../providers/index.js';
 import { detectTargets } from '../providers/mock.js';
 import { detectCrisis } from '../lib/safety.js';
@@ -118,7 +118,14 @@ function render() {
           // Подію фіксуємо ДО стирання: інакше вона сама лишиться в сховищі
           // після «видалити все» — що прямо суперечить обіцянці.
           track('user_data_deleted');
+          // Відправити ДО стирання: інакше подія піде разом із чергою, і ми
+          // не дізнаємося, що людина видалила дані, — а це найважливіший
+          // сигнал із усіх, які збираємо.
+          flush();
           store.wipe();
+          // Анонімний номер пристрою теж стирається: інакше «видалити все»
+          // було б неправдою — нас усе одно впізнавали б як ту саму людину.
+          clearDevice();
           state = store.load(); ls = freshLesson(); draft = {}; obIndex = 0;
           go('#/');
         },
@@ -127,6 +134,7 @@ function render() {
     case 'privacy':
       return mount(root, PrivacyScreen({
         standalone: !state.onboarded,
+        providerMode: providers.mode,
         onBack: () => go(state.onboarded ? '#/settings' : '#/'),
       }));
 

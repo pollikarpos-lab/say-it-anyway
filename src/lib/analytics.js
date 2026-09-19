@@ -1,6 +1,16 @@
 // Аналітика БЕЗ вмісту особистої відповіді.
-// У цій версії події лише пишуться в localStorage і в console — жодної
-// зовнішньої відправки не налаштовано і не заявляється.
+//
+// Що надсилається: назва події з білого списку EVENTS, кілька числових
+// полів з білого списку ALLOWED_PROPS, час і анонімний ідентифікатор
+// пристрою. Більше нічого.
+//
+// Що НЕ надсилається ніколи: текст відповіді, транскрипція, ім'я, аудіо.
+// Технічно це неможливо: поля поза ALLOWED_PROPS відкидаються, а рядки
+// довші за 40 символів — теж. Той самий фільтр повторений на сервері,
+// бо клієнт можна підмінити.
+//
+// Надсилання працює ТІЛЬКИ на справжньому домені. На localhost події
+// лишаються локальними — щоб розробка й тести не засмічували статистику.
 
 export const EVENTS = [
   'landing_viewed','onboarding_started','onboarding_completed','lesson_started',
@@ -16,7 +26,7 @@ const MAX = 300;
 
 // Поля, які дозволено класти в props. Усе інше відкидається — це технічний
 // запобіжник проти випадкового витоку тексту відповіді в аналітику.
-const ALLOWED_PROPS = new Set([
+export const ALLOWED_PROPS = new Set([
   'day','mode','ms','durationMs','count','reason','provider','source','ok','step','kind',
 ]);
 
@@ -35,10 +45,71 @@ export function track(name, props = {}) {
     localStorage.setItem(KEY, JSON.stringify(log.slice(-MAX)));
   } catch {}
   if (globalThis.__SIA_DEBUG__) console.log('[event]', ev);
+
+  if (sendingEnabled()) {
+    queue(ev);
+    // Пачками, а не по одній події: менше запитів і менше батареї.
+    clearTimeout(flushTimer);
+    flushTimer = setTimeout(flush, 3000);
+  }
   return ev;
+}
+
+/* ───────── надсилання ───────── */
+
+const QUEUE_KEY = 'sia.events.queue';
+const DEVICE_KEY = 'sia.device';
+let flushTimer = 0;
+
+/** Анонімний ідентифікатор пристрою. Випадковий, не пов'язаний з людиною. */
+function deviceId() {
+  try {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (!id) {
+      id = 'd' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  } catch { return 'd-unknown'; }
+}
+
+function sendingEnabled() {
+  const c = (typeof window !== 'undefined' && window.__SIA_CONFIG__) || {};
+  return c.providerMode === 'http' && !!c.apiBaseUrl;
+}
+
+function queue(ev) {
+  try {
+    const q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    q.push(ev);
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-100)));
+  } catch {}
+}
+
+/** Надсилає накопичене. Помилка мережі не втрачає події — вони чекають. */
+export async function flush() {
+  if (!sendingEnabled()) return;
+  let q = [];
+  try { q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch {}
+  if (!q.length) return;
+  const cfg = window.__SIA_CONFIG__ || {};
+  try {
+    const res = await fetch(`${cfg.apiBaseUrl}/events`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ device: deviceId(), events: q }),
+      keepalive: true,
+    });
+    if (res.ok) localStorage.setItem(QUEUE_KEY, '[]');
+  } catch { /* лишається в черзі до наступного разу */ }
 }
 
 export function readLog() {
   try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; }
 }
-export function clearLog() { try { localStorage.removeItem(KEY); } catch {} }
+export function clearLog() {
+  try { localStorage.removeItem(KEY); localStorage.removeItem(QUEUE_KEY); } catch {}
+}
+
+/** Видалення всіх даних стирає і анонімний ідентифікатор. */
+export function clearDevice() { try { localStorage.removeItem(DEVICE_KEY); } catch {} }
