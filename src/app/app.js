@@ -280,8 +280,16 @@ async function afterTranscript(t, lesson) {
     ls.analysis = await providers.llm.analyze({
       transcript: t.text, targets: lesson.targets, level: 'A2-B1',
     });
-  } catch {
-    ls.analysis = { corrections: [], improved: t.text, usedTargets: [], totalFound: 0, isDemo: true, provider: 'fallback' };
+  } catch (err) {
+    // Тут була діра: провал розбору підміняв себе «порожнім розбором», і
+    // далі екран показував текст користувача як покращену версію. Тобто
+    // помилка мережі виглядала як «у тебе все правильно». Тепер провал
+    // лишається провалом і так і називається.
+    track('analysis_failed', { day: ls.day, reason: (err && err.name) || 'error' });
+    ls.analysis = {
+      corrections: [], improved: t.text, usedTargets: [], totalFound: 0,
+      isDemo: false, failed: true, provider: 'failed',
+    };
   }
   ls.step = stepsOf(lesson).indexOf('transcript');
   render();

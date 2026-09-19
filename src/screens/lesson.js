@@ -657,6 +657,8 @@ function improvedStep(ctx, page, next) {
   const unchanged = safe.ok && norm(text) === norm(original);
   // Розбір на простих правилах не має права стверджувати правильність.
   const ruleBased = ctx.providerMode === 'mock';
+  // А розбір, якого взагалі не сталося, не має права вдавати розбір.
+  const failed = !!(a && a.failed);
 
   const repeatBtn = h('button.btn.btn--ghost.btn--center', { type: 'button' }, h('span', 'Повторити за диктором'));
   repeatBtn.addEventListener('click', () => {
@@ -675,17 +677,21 @@ function improvedStep(ctx, page, next) {
     // На простих правилах нуль правок означає лише те, що такого правила немає:
     // підтвердити помилку як правильну — гірше, ніж промовчати про неї.
     h('p.eyebrow', { style: { marginTop: '18px' } },
-      unchanged ? (ruleBased ? 'Без правок' : 'Нічого міняти') : 'Та сама думка'),
-    h('h2', unchanged
-      ? (ruleBased
-          ? h('span', 'Правила тут ', h('em', 'нічого не знайшли.'))
-          : h('span', 'Ти сказав це ', h('em', 'правильно одразу.')))
-      : h('span', 'Твої слова. ', h('em', 'Трохи природніше.'))),
-    h('p.muted', { style: { marginBottom: '20px' } }, unchanged
-      ? (ruleBased
-          ? 'Це не означає, що речення правильне — тільки те, що в цьому списку правил немає нічого на цей випадок. Справжній розбір буде, коли підключимо AI.'
-          : 'Розбір не знайшов, що тут поліпшити. Це твоє речення таким, як ти його сказав.')
-      : 'Це не зразкова відповідь із підручника. Зміст твій — змінена тільки форма.'),
+      failed ? 'Розбір не вдався' : unchanged ? (ruleBased ? 'Без правок' : 'Нічого міняти') : 'Та сама думка'),
+    h('h2', failed
+      ? h('span', 'Не вдалося ', h('em', 'розібрати цю відповідь.'))
+      : unchanged
+        ? (ruleBased
+            ? h('span', 'Правила тут ', h('em', 'нічого не знайшли.'))
+            : h('span', 'Ти сказав це ', h('em', 'правильно одразу.')))
+        : h('span', 'Твої слова. ', h('em', 'Трохи природніше.'))),
+    h('p.muted', { style: { marginBottom: '20px' } }, failed
+      ? 'Зв\'язок із помічником не спрацював, тож твоє речення ніхто не перевіряв. Нижче — те, що ти сказав, як є. Спробуй ще раз пізніше.'
+      : unchanged
+        ? (ruleBased
+            ? 'Це не означає, що речення правильне — тільки те, що в цьому списку правил немає нічого на цей випадок. Справжній розбір буде, коли підключимо AI.'
+            : 'Розбір не знайшов, що тут поліпшити. Це твоє речення таким, як ти його сказав.')
+        : 'Це не зразкова відповідь із підручника. Зміст твій — змінена тільки форма.'),
 
     !safe.ok
       ? h('.card', { style: { borderColor: 'var(--danger)' } },
@@ -696,7 +702,9 @@ function improvedStep(ctx, page, next) {
         ? h('.thought.thought--improved', { style: { marginBottom: '16px' } },
             h('small', 'Твоє речення'),
             h('p.thought__text', text),
-            h('.thought__note', ruleBased ? 'Показано як є, без перевірки.' : 'Без жодної правки.'))
+            h('.thought__note', failed
+              ? 'Не перевірено — розбір не відбувся.'
+              : ruleBased ? 'Показано як є, без перевірки.' : 'Без жодної правки.'))
         : thoughtPair({
             original, improved: text,
             originalLabel: 'Як сказав ти', improvedLabel: 'Трохи природніше',
@@ -787,8 +795,10 @@ function savePhraseStep(ctx, page, next) {
   // Якщо правила не знайшли жодної правки, «покращена» версія — це просто
   // те, що людина сказала. Пропонувати таке на згадку як зразок не можна:
   // саме так «I will called them this week» ледь не лишилося вивченим.
-  const unchecked = ctx.providerMode === 'mock'
-    && ls.analysis && (ls.analysis.corrections || []).length === 0;
+  const unchecked = !!ls.analysis && (
+    (ls.analysis.corrections || []).length === 0 && ctx.providerMode === 'mock'
+    || ls.analysis.failed
+  );
 
   return page([
     h('p.eyebrow', { style: { marginTop: '18px' } }, 'Забрати з собою'),

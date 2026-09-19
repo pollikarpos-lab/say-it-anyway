@@ -8,7 +8,7 @@ import { getLesson } from '../content/lessons.js';
  */
 function cfg() {
   const c = (typeof window !== 'undefined' && window.__SIA_CONFIG__) || {};
-  return { mode: c.providerMode || 'mock', apiBaseUrl: c.apiBaseUrl || '' };
+  return { mode: c.providerMode || 'mock', apiBaseUrl: c.apiBaseUrl || '', serverTts: !!c.serverTts };
 }
 
 export function getProviders() {
@@ -18,8 +18,10 @@ export function getProviders() {
     mode: useHttp ? 'http' : 'mock',
     stt: useHttp ? createHttpStt(apiBaseUrl) : createMockStt((day) => { const l = getLesson(day); return (l && l.demoTranscript) || ''; }),
     llm: useHttp ? createHttpLlm(apiBaseUrl) : createMockLlm(),
-    // TTS: голос браузера працює і в mock-, і в http-режимі, якщо сервер не заданий
-    tts: useHttp ? createHttpTts(apiBaseUrl) : createBrowserTts(),
+    // TTS свідомо лишається браузерним навіть у http-режимі: голос уже
+    // працює, коштує нуль і не залежить від мережі. Серверне озвучення
+    // вмикається тільки явним прапорцем, коли буде за що його вмикати.
+    tts: (useHttp && cfg().serverTts) ? createHttpTts(apiBaseUrl) : createBrowserTts(),
   };
 }
 
