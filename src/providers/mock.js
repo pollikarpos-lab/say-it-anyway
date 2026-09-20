@@ -5,14 +5,15 @@ import { CORRECTION_KINDS as K } from './types.js';
    демонстраційний текст. Прапорець isDemo:true веде в UI-плашку.
    ============================================================ */
 export function createMockStt(demoByDay) {
-  const pick = (day) => (typeof demoByDay === 'function' ? demoByDay(day) : demoByDay) || '';
+  const pick = (day, routeId) =>
+    (typeof demoByDay === 'function' ? demoByDay(day, routeId) : demoByDay) || '';
   return {
     id: 'mock-stt',
     label: 'Демо-розпізнавання (без AI)',
     async transcribe(blob, opts = {}) {
       await delay(900 + Math.random() * 700);
       return {
-        text: pick(opts.day),
+        text: pick(opts.day, opts.routeId),
         isDemo: true,
         confidence: 'unknown',
         provider: 'mock-stt',
@@ -27,6 +28,23 @@ export function createMockStt(demoByDay) {
    типові помилки україномовних A2–B1. Він РЕАЛЬНО працює з
    текстом користувача: що напишете/скажете, те й розбирає.
    ============================================================ */
+
+const THIRD_PERSON = {
+  know: 'knows', like: 'likes', love: 'loves', want: 'wants', need: 'needs',
+  say: 'says', think: 'thinks', make: 'makes', take: 'takes', work: 'works',
+  live: 'lives', come: 'comes', go: 'goes', help: 'helps', call: 'calls',
+  ask: 'asks', look: 'looks', seem: 'seems', talk: 'talks', laugh: 'laughs',
+  see: 'sees', understand: 'understands',
+};
+
+const ING_FORMS = {
+  eat: 'eating', call: 'calling', cook: 'cooking', walk: 'walking', wait: 'waiting',
+  talk: 'talking', speak: 'speaking', work: 'working', live: 'living', sit: 'sitting',
+  stay: 'staying', go: 'going', write: 'writing', think: 'thinking', know: 'knowing',
+  find: 'finding', meet: 'meeting', learn: 'learning', ask: 'asking', sleep: 'sleeping',
+  drive: 'driving', read: 'reading', listen: 'listening', watch: 'watching',
+  come: 'coming', make: 'making', take: 'taking', get: 'getting', give: 'giving',
+};
 
 const BASE_FORMS = {
   told: 'tell', went: 'go', saw: 'see', said: 'say', did: 'do', made: 'make',
@@ -191,9 +209,30 @@ const RULES = [
     kind: K.NATURAL, weight: 7,
     why: 'Go for a walk — сталий вислів, артикль обов\'язковий.' },
 
-  { id: 'third-person-s', re: /\b(it|he|she)\s+(help|make|take|work|feel|seem|look|need|want|mean|come|go|say|tell|know|think)\b(?!\s+(?:to\b|me\b|you\b|us\b))/gi,
-    fix: (m) => `${m[1]} ${m[2]}s`, kind: K.GRAMMAR, weight: 8,
-    why: 'Після it, he, she в теперішньому часі дієслово отримує -s: it helps.' },
+  { id: 'past-narrative-bare', re: /\b(everybody|everyone|nobody|somebody|he|she|they|we)\s+(laugh|smile|look|talk|walk|ask|answer|call|help|watch|listen|work|say|tell|have|come|go|see|know|make|take|get|happen|feel|think)\b(?!\s*(?:-|ing))/gi,
+    fix: (m) => {
+      const v = m[2].toLowerCase();
+      return `${m[1]} ${PAST_FORMS[v] || (/e$/.test(v) ? v + 'd' : v + 'ed')}`;
+    },
+    kind: K.CLARITY, weight: 9,
+    skipIf: (t) => !PAST_MARKER.test(t) && !/\bthe\s+first\s+time\b/i.test(t)
+      && !/\bwhen\s+i\s+(came|come|arrived|arrive|moved|move)\b/i.test(t),
+    why: 'Розповідь про минуле — і дієслова мають бути в минулому: nobody told, everybody laughed.' },
+
+  // Для «I» це правило спрацьовує ЛИШЕ після явної вказівки на минуле
+  // («this week I ask», «last year I go»). Спокуса застосувати його й
+  // після крапки була, і я їй піддався — в результаті «I know how it
+  // feels» перетворилося на «I knew», тобто розбір вчив неправильного.
+  // У тексті, де минула розповідь сусідить із теперішнім твердженням,
+  // правила не можуть вгадати час. Пропущена правка нешкідлива; хибна
+  // псує саме те, чого людина прийшла вчитися.
+  { id: 'past-narrative-i', re: /\b(this\s+week|last\s+\w+|yesterday|\w+\s+ago)\s+(i)\s+(say|ask|have|go|come|tell|see|get|make|take|call|walk|work)\b(?!\s*(?:-|ing))/gi,
+    fix: (m) => {
+      const v = m[3].toLowerCase();
+      return `${m[1].toLowerCase()} I ${PAST_FORMS[v] || (/e$/.test(v) ? v + 'd' : v + 'ed')}`;
+    },
+    kind: K.CLARITY, weight: 9,
+    why: 'Вказівка на минуле вимагає й дієслова в минулому: this week I asked, last year I went.' },
 
   { id: 'my-english', re: /\bmy\s+english\b/g, fix: () => 'my English',
     kind: K.GRAMMAR, weight: 2, why: 'Назви мов пишуть із великої літери: English.' },
@@ -248,6 +287,163 @@ const RULES = [
     fix: (m) => `${m[1]} ${BASE_FORMS[m[2].toLowerCase()] || m[2].toLowerCase().replace(/ed$/, '')}`,
     kind: K.GRAMMAR, weight: 10,
     why: 'Після will дієслово стоїть у початковій формі: I will call, а не I will called. Will уже показує, що це майбутнє — минулий час тут зайвий.' },
+
+  /* ---- маршрут «Далеко від дому» ----
+     Обидві конструкції дня 2 вимагають -ing після is, і саме на цьому
+     спотикається більшість: «the hardest part is eat alone». ---- */
+
+  { id: 'is-bare-verb', re: /\b(part|thing|helps|helped)\s+is\s+(eat|call|cook|walk|wait|talk|speak|work|live|sit|stay|go|write|think|know|find|meet|learn|ask|sleep|drive|read|listen|watch)\b/gi,
+    fix: (m) => `${m[1]} is ${ING_FORMS[m[2].toLowerCase()] || m[2].toLowerCase() + 'ing'}`,
+    kind: K.GRAMMAR, weight: 10,
+    why: 'Після «is» у таких реченнях дієслово стоїть із -ing: the hardest part is eating, what helps is calling.' },
+
+  { id: 'is-to-verb', re: /\b(part|thing|helps|helped)\s+is\s+to\s+([a-z]+)\b/gi,
+    fix: (m) => `${m[1]} is ${ING_FORMS[m[2].toLowerCase()] || m[2].toLowerCase() + 'ing'}`,
+    kind: K.NATURAL, weight: 8,
+    why: 'Тут природніше -ing, а не «to»: what helps is calling, а не what helps is to call. З «to» речення звучить як інструкція.' },
+
+  { id: 'the-home', re: /\b(call|calling|go|going|come|coming|drive|driving|walk|walking)\s+the\s+home\b/gi,
+    fix: (m) => `${m[1]} home`,
+    kind: K.NATURAL, weight: 7,
+    why: 'Home у значенні «додому» вживається без артикля: call home, go home, drive home.' },
+
+  { id: 'miss-after', re: /\bmiss\s+(?:after|for|about)\s+/gi, fix: () => 'miss ',
+    kind: K.GRAMMAR, weight: 8,
+    why: 'Miss вживається без прийменника: I miss home, I miss my mother.' },
+
+  { id: 'i-am-lonely-here', re: /\bi\s+am\s+alone\s+feel\b/gi, fix: () => 'I feel alone',
+    kind: K.CLARITY, weight: 9,
+    why: 'Порядок слів: I feel alone. Спершу підмет і дієслово, потім те, як саме.' },
+
+  /* ---- маршрут «Далеко від дому», дні 3–5 ----
+     Помилки тут інші, ніж у маршруті страху: більше минулого часу,
+     більше третьої особи, більше артиклів перед професіями й людьми. ---- */
+
+  { id: 'very-verb', re: /\b(i|we|they|you)\s+very\s+(miss|like|want|need|love|hope|enjoy)\b/gi,
+    fix: (m) => `${m[1]} really ${m[2]}`,
+    kind: K.NATURAL, weight: 9,
+    why: 'Very не ставлять перед дієсловом. «Дуже сумую» — це I really miss.' },
+
+  { id: 'used-to-past', re: /\bused\s+to\s+([a-z]+)\b/gi,
+    fix: (m) => {
+      const w = m[1].toLowerCase();
+      const base = BASE_FORMS[w] || (/ed$/.test(w) ? w.replace(/ed$/, '') : w);
+      return `used to ${base}`;
+    },
+    kind: K.GRAMMAR, weight: 9,
+    why: 'Після used to дієслово в початковій формі: we used to talk, а не used to talked.' },
+
+  { id: 'noone-know', re: /\bno\s+one\s+(here\s+)?(know|like|want|need|say|think|see|understand)\b/gi,
+    fix: (m) => `no one ${m[2] ? '' : ''}${m[1] || ''}${m[2].toLowerCase()}s`.replace(/\s+/g, ' '),
+    kind: K.GRAMMAR, weight: 9,
+    why: 'No one за граматикою — одна особа, тому дієслово з -s: no one knows me.' },
+
+  // id навмисно інший: правило нижче вже зветься third-person-s, а два
+  // однакові id ламають відбір правок — одна з них мовчки зникає.
+  // Це ширше: покриває everybody/nobody і не виключає «she know me».
+  { id: 'third-person-s-wide', re: /\b(she|he|it|everybody|everyone|nobody|somebody)\s+(know|like|love|want|need|say|think|make|take|work|live|come|go|help|call|ask|look|seem|talk|laugh)\b/gi,
+    fix: (m) => `${m[1]} ${THIRD_PERSON[m[2].toLowerCase()] || m[2].toLowerCase() + 's'}`,
+    kind: K.GRAMMAR, weight: 8,
+    why: 'З he, she, everybody дієслово в теперішньому часі має -s: she knows, everybody laughs.' },
+
+  { id: 'third-person-s', re: /\b(it|he|she)\s+(help|make|take|work|feel|seem|look|need|want|mean|come|go|say|tell|know|think)\b(?!\s+(?:to\b|me\b|you\b|us\b))/gi,
+    fix: (m) => `${m[1]} ${m[2]}s`, kind: K.GRAMMAR, weight: 8,
+    why: 'Після it, he, she в теперішньому часі дієслово отримує -s: it helps.' },
+
+  { id: 'firsttime-present', re: /\b(the\s+first\s+time\s+i)\s+(go|come|see|say|tell|make|take|have|do|feel|think|know|get|walk|call|try|meet)\b/gi,
+    fix: (m) => `${m[1]} ${PAST_FORMS[m[2].toLowerCase()] || m[2].toLowerCase() + 'ed'}`,
+    kind: K.CLARITY, weight: 10,
+    why: '«The first time I…» — це про минуле, тож дієслово теж у минулому: the first time I went.' },
+
+  { id: 'was-when-present', re: /\bwas\s+when\s+i\s+(realize|understand|know|see|feel|decide)\b/gi,
+    fix: (m) => `was when I ${PAST_FORMS[m[1].toLowerCase()] || m[1].toLowerCase() + 'd'}`,
+    kind: K.GRAMMAR, weight: 9,
+    why: 'Was уже поставив речення в минуле — друге дієслово має бути там само: that was when I realized.' },
+
+  { id: 'realized-am', re: /\b(realized|realised|knew|understood|felt|saw)\s+(that\s+)?i\s+(am|'m|\u2019m)\b/gi,
+    fix: (m) => `${m[1].toLowerCase()} ${m[2] || ''}I was`.replace(/\s+/g, ' '),
+    kind: K.GRAMMAR, weight: 8,
+    why: 'Коли головне дієслово в минулому, друге теж зсувається назад: I realized I was a stranger.' },
+
+  { id: 'didnt-past', re: /\bdidn(?:'|’)?t\s+(knew|had|went|saw|said|made|took|came|got|felt|thought|told|found|left)\b/gi,
+    fix: (m) => `didn't ${BASE_FORMS[m[1].toLowerCase()] || m[1].toLowerCase()}`,
+    kind: K.GRAMMAR, weight: 10,
+    why: 'Після didn’t дієслово повертається в початкову форму: didn’t know, didn’t go.' },
+
+  { id: 'modal-to', re: /\b(could|would|should|can|must|may|might)\s+to\s+([a-z]+)\b/gi,
+    fix: (m) => `${m[1]} ${m[2]}`,
+    kind: K.GRAMMAR, weight: 9,
+    why: 'Після could, would, should «to» не ставлять: we could have lunch.' },
+
+  { id: 'there-is-noart', re: /\bthere\s+(is|was)\s+(man|woman|guy|girl|person|boy|friend|neighbour|neighbor)\b/gi,
+    fix: (m) => `there ${m[1].toLowerCase()} a ${m[2].toLowerCase()}`,
+    kind: K.GRAMMAR, weight: 8,
+    why: 'Перед злічуваним іменником в однині потрібен артикль: there is a man.' },
+
+  { id: 'am-noart', re: /\b(i\s+am|i(?:'|’)m|was|is)\s+(stranger|foreigner|student|teacher|doctor|nurse|driver|guest)\b/gi,
+    fix: (m) => `${m[1]} a ${m[2].toLowerCase()}`,
+    kind: K.GRAMMAR, weight: 8,
+    why: 'Перед професією чи роллю в однині ставлять артикль: I am a stranger, she is a nurse.' },
+
+  { id: 'sentence-is', re: /(^|[.!?]\s+)Is\s+(a|very|not|quite|too)\b/g,
+    fix: (m) => `${m[1]}It's ${m[2]}`,
+    kind: K.CLARITY, weight: 10,
+    why: 'Речення не може починатися з Is у розповіді — бракує підмета: It’s a bit awkward.' },
+
+  /* ---- маршрут «Далеко від дому», дні 6–7 ---- */
+
+  { id: 'when-i-come', re: /\bwhen\s+i\s+(come|arrive|move|start|first\s+come)\b/gi,
+    fix: (m) => `when I ${PAST_FORMS[m[1].toLowerCase()] || m[1].toLowerCase() + 'd'}`,
+    kind: K.CLARITY, weight: 10,
+    why: '«When I came here» — про те, що вже сталося, тож дієслово в минулому.' },
+
+  { id: 'it-need-time', re: /\bit\s+needs?\s+time\b/gi, fix: () => 'it takes time',
+    kind: K.NATURAL, weight: 7,
+    why: 'Сталий вислів — it takes time. «It needs time» звучить як переклад дослівно.' },
+
+  { id: 'know-how-is-it', re: /\b(know|knew|see|saw|understand|understood|remember|remembered|imagine)\s+how\s+is\s+it\b/gi,
+    fix: (m) => `${m[1].toLowerCase()} how it is`,
+    kind: K.GRAMMAR, weight: 9,
+    why: 'Це не питання, а частина речення — тому звичайний порядок слів: I know how it is.' },
+
+  { id: 'for-me-was', re: /\bfor\s+me\s+(was|is)\b/gi, fix: (m) => `for me it ${m[1].toLowerCase()}`,
+    kind: K.CLARITY, weight: 8,
+    why: 'Бракує підмета: for me it was almost two years.' },
+
+  { id: 'but-is', re: /\b(but|and|so)\s+is\s+(also|still|not|very|already)\b/gi,
+    fix: (m) => `${m[1].toLowerCase()} it is ${m[2].toLowerCase()}`,
+    kind: K.CLARITY, weight: 9,
+    why: 'Після but потрібен новий підмет: but it is also this place now.' },
+
+  { id: 'possessive-s', re: /\bmy\s+(mother|father|sister|brother|wife|husband|friend|son|daughter|parents)\s+(kitchen|house|home|voice|car|room|name|family|words|hands)\b/gi,
+    fix: (m) => `my ${m[1].toLowerCase()}'s ${m[2].toLowerCase()}`,
+    kind: K.GRAMMAR, weight: 8,
+    why: 'Належність показують через ’s: my mother’s kitchen.' },
+
+  { id: 'nothing-happen', re: /\bnothing\s+(bad\s+|good\s+|strange\s+)?happen\b/gi,
+    fix: (m) => `nothing ${m[1] || ''}happened`,
+    kind: K.GRAMMAR, weight: 9,
+    why: 'Розповідь про те, що вже сталося: nothing bad happened.' },
+
+  { id: 'like-noart', re: /\blike\s+(a\s+)?(guest|stranger|foreigner|tourist|child|baby|fool)\b/gi,
+    fix: (m) => `like a ${m[2].toLowerCase()}`,
+    kind: K.GRAMMAR, weight: 7,
+    why: 'Перед злічуваним іменником в однині потрібен артикль: I feel like a guest.' },
+
+  { id: 'if-it-get', re: /\bif\s+it\s+(get|become|seem|feel|look|happen)\b/gi,
+    fix: (m) => `if it ${THIRD_PERSON[m[1].toLowerCase()] || m[1].toLowerCase() + 's'}`,
+    kind: K.GRAMMAR, weight: 8,
+    why: 'Після it у теперішньому часі дієслово з -s: if it gets hard.' },
+
+  { id: 'ordinal-noart', re: /\b(on|in|at|that|since|during)\s+(first|second|last|hardest|easiest)\s+(year|day|week|month|time|part)\b/gi,
+    fix: (m) => `${m[1].toLowerCase()} the ${m[2].toLowerCase()} ${m[3].toLowerCase()}`,
+    kind: K.GRAMMAR, weight: 7,
+    why: 'Перед порядковим числівником і найвищим ступенем ставлять the: on the first day.' },
+
+  { id: 'is-superlative', re: /\bis\s+(hardest|easiest|best|worst|longest|shortest)\b/gi,
+    fix: (m) => `is the ${m[1].toLowerCase()}`,
+    kind: K.GRAMMAR, weight: 7,
+    why: 'Найвищий ступінь вживається з the: the first year is the hardest.' },
 ];
 
 function applyRules(text) {
@@ -260,8 +456,19 @@ function applyRules(text) {
     // skipIf дає правилу право промовчати, коли контекст його спростовує:
     // «I worried about it yesterday» — законний минулий час, не помилка.
     if (rule.skipIf && rule.skipIf(improved)) continue;
-    const probe = new RegExp(rule.re.source, rule.re.flags.replace('g', ''));
-    const m = probe.exec(improved);
+    // Шукаємо перше входження, яке правило СПРАВДІ змінює. Більшість правил
+    // написані широко (`like (a )?guest`, `used to (\w+)`), тому вони ловлять
+    // і вже правильну форму й «виправляють» її саму в себе. Без цієї
+    // перевірки людина бачила «used to talk → used to talk»: розбір, який
+    // нічого не каже, але виглядає як знайдена помилка. Це підриває довіру
+    // до всіх інших правок на екрані.
+    const probe = new RegExp(rule.re.source, rule.re.flags.includes('g')
+      ? rule.re.flags : rule.re.flags + 'g');
+    let m = null;
+    for (let hit = probe.exec(improved); hit; hit = probe.exec(improved)) {
+      if (hit[0] === '') { probe.lastIndex++; continue; }
+      if (rule.fix(hit) !== hit[0]) { m = hit; break; }
+    }
     if (!m) continue;
     found.push({
       id: rule.id, kind: rule.kind,

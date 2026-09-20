@@ -1,12 +1,18 @@
 import { h, icon } from '../lib/dom.js';
-import { ROUTE } from '../content/route.js';
-import { isDayUnlocked, BUILT_DAYS, routeComplete } from '../content/lessons.js';
+import { getRoute, ROUTES } from '../content/routes.js';
+import { isDayUnlocked, builtDays, routeComplete } from '../content/lessons.js';
 import { siteFoot } from '../app/ui.js';
 
-export function RouteScreen({ state, onOpenDay, onSettings, onProgress }) {
+export function RouteScreen({ state, onOpenDay, onSettings, onProgress, onSwitchRoute }) {
+  const routeId = state.activeRoute || 'fear-7';
+  const ROUTE = getRoute(routeId);
+  const BUILT = builtDays(routeId);
+  // Скільки днів пройдено в КОЖНОМУ маршруті — щоб не пропонувати
+  // почати те, що вже почате, і показати, що чекає.
+  const doneIn = (id) => ((state.byRoute || {})[id] || (id === routeId ? state : {})).completedDays || [];
   const done = new Set(state.completedDays || []);
   const greet = state.name ? `Вітаю, ${state.name}` : 'Вітаю';
-  const finished = routeComplete(state.completedDays || []);
+  const finished = routeComplete(state.completedDays || [], routeId);
   const totalMs = Object.values(state.lessons || {}).reduce((a, l) => a + (l.speechMs || 0), 0);
 
   return h('.screen',
@@ -34,10 +40,30 @@ export function RouteScreen({ state, onOpenDay, onSettings, onProgress }) {
         h('p.trophy__foot', 'Тиждень тому цих розмов не було.'),
       ) : null,
 
+      // Фінал маршруту — це двері, а не глухий кут. Інші теми показуємо
+      // тільки тому, хто дійшов до кінця: інакше людина розпорошиться
+      // між п'ятьма початками й не закінчить жодного.
+      // Коли всі інші теми теж пройдені, заголовок «Інша тема» обіцяв би
+      // нове там, де нового немає. Тоді це просто перехід назад.
+      finished && ROUTES.length > 1 ? h('div', { style: { marginBottom: '24px' } },
+        h('p.eyebrow', ROUTES.filter(r => r.id !== routeId).every(r => doneIn(r.id).length > 0)
+          ? 'Пройдені теми' : 'Інша тема'),
+        ...ROUTES.filter(r => r.id !== routeId).map(r => {
+          const n = doneIn(r.id).length;
+          return h('button.choice', {
+            type: 'button',
+            onclick: () => onSwitchRoute && onSwitchRoute(r.id),
+          }, h('.choice__dot'), h('.choice__body',
+            h('b', r.title),
+            h('span', n ? `Пройдено днів: ${n}` : r.blurb || r.promise),
+          ));
+        }),
+      ) : null,
+
       h('.route', ...ROUTE.days.map(d => {
         const isDone = done.has(d.day);
-        const built = BUILT_DAYS.includes(d.day);
-        const isReady = built && isDayUnlocked(d.day, state.completedDays || [], state.unlockAll);
+        const built = BUILT.includes(d.day);
+        const isReady = built && isDayUnlocked(d.day, state.completedDays || [], state.unlockAll, routeId);
         const cls = isDone ? 'is-done' : isReady ? 'is-active' : 'is-locked';
         return h(`button.day.${cls}`, {
           type: 'button',
@@ -51,7 +77,9 @@ export function RouteScreen({ state, onOpenDay, onSettings, onProgress }) {
           ),
           h('.day__card',
             h('.day__title', `День ${d.day}. ${d.title}`),
-            h('.day__meta', d.ref, ' · ', d.subtitle),
+            // Для ще не написаних днів посилання немає, і голий прочерк у рядку
+            // виглядає як забуте поле. Показуємо тільки те, що справді є.
+            h('.day__meta', d.ref && d.ref !== '—' ? [d.ref, ' · ', d.subtitle] : d.subtitle),
             isReady || isDone
               ? h('.tiny', { style: { marginTop: '8px' } }, d.blurb)
               : built

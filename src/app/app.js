@@ -10,7 +10,8 @@ import { RouteScreen } from '../screens/route-home.js';
 import { LessonScreen, stepsOf, splitSentences } from '../screens/lesson.js';
 import { CrisisScreen } from '../screens/crisis.js';
 import { SettingsScreen, PrivacyScreen, ProgressScreen } from '../screens/settings.js';
-import { getLesson, isDayUnlocked, nextDay, BUILT_DAYS, routeComplete } from '../content/lessons.js';
+import { getLesson, isDayUnlocked, nextDay, builtDays, routeComplete } from '../content/lessons.js';
+import { ROUTES, getRoute, DEFAULT_ROUTE_ID, nextRouteAfter } from '../content/routes.js';
 
 const root = document.getElementById('root');
 const providers = getProviders();
@@ -31,7 +32,38 @@ function freshLesson() {
   };
 }
 
-function persist() { store.save(state); }
+// Поля прогресу (activeDay, completedDays…) лежать у стані «пласко» — так
+// їх читають усі екрани. Але живуть вони в byRoute[activeRoute], і persist
+// синхронізує одне з одним при КОЖНОМУ збереженні. Це навмисно: якби копія
+// оновлювалася лише при перемиканні маршруту, вона б рано чи пізно розійшлася
+// з правдою, і людина побачила б чужий прогрес.
+const ROUTE_FIELDS = ['activeDay', 'completedDays', 'savedPhrases', 'lessons', 'recordings'];
+
+function syncRouteBucket() {
+  state.byRoute = state.byRoute || {};
+  const id = state.activeRoute || DEFAULT_ROUTE_ID;
+  const bucket = {};
+  for (const f of ROUTE_FIELDS) bucket[f] = state[f];
+  state.byRoute[id] = bucket;
+}
+
+function persist() { syncRouteBucket(); store.save(state); }
+
+/** Перемикає активний маршрут, не втрачаючи прогресу жодного з них. */
+function switchRoute(id) {
+  if (id === state.activeRoute) return;
+  syncRouteBucket();                       // зберегти те, де були
+  state.activeRoute = id;
+  const saved = (state.byRoute || {})[id];
+  if (saved) {
+    for (const f of ROUTE_FIELDS) state[f] = saved[f];
+  } else {
+    state.activeDay = 1; state.completedDays = [];
+    state.savedPhrases = []; state.lessons = {}; state.recordings = {};
+  }
+  ls = freshLesson();
+  store.save(state);
+}
 function go(hash) { if (location.hash !== hash) location.hash = hash; else render(); }
 export function rerender() { render(); }
 
@@ -72,7 +104,7 @@ function render() {
         onPick: (v) => { state.mode = v; render(); },
         onBack: () => { obIndex = ONBOARDING_QUESTIONS.length - 1; go('#/onboarding'); },
         onDone: () => {
-          Object.assign(state, draft, { onboarded: true, activeDay: nextDay(state.completedDays) });
+          Object.assign(state, draft, { onboarded: true, activeDay: nextDay(state.completedDays, state.activeRoute) });
           persist();
           track('onboarding_completed', { mode: state.mode });
           go('#/route');
@@ -83,9 +115,9 @@ function render() {
       return mount(root, routeHome());
 
     case 'lesson': {
-      const day = Number(param) || nextDay(state.completedDays);
-      const lesson = getLesson(day);
-      if (!lesson || !isDayUnlocked(day, state.completedDays, state.unlockAll)) return go('#/route');
+      const day = Number(param) || nextDay(state.completedDays, state.activeRoute);
+      const lesson = getLesson(day, state.activeRoute);
+      if (!lesson || !isDayUnlocked(day, state.completedDays, state.unlockAll, state.activeRoute)) return go('#/route');
       if (ls.day !== day) { ls = freshLesson(); ls.day = day; }
       if (ls.crisis) {
         return mount(root, CrisisScreen({
@@ -146,8 +178,13 @@ function render() {
 function routeHome() {
   return RouteScreen({
     state,
+    onSwitchRoute: (id) => {
+      switchRoute(id);
+      track('lesson_started', { day: 1, mode: state.mode, source: 'route_switch' });
+      go('#/route');
+    },
     onOpenDay: (d) => {
-      if (!isDayUnlocked(d, state.completedDays, state.unlockAll)) return;
+      if (!isDayUnlocked(d, state.completedDays, state.unlockAll, state.activeRoute)) return;
       ls = freshLesson(); ls.day = d;
       track('lesson_started', { day: d, mode: state.mode });
       go('#/lesson/' + d);
@@ -169,7 +206,7 @@ function deleteRecording() {
 function lessonCtx(lesson) {
   const SEQ = stepsOf(lesson);
   const done = state.completedDays || [];
-  const upcoming = BUILT_DAYS.find(d => d > lesson.day);
+  const upcoming = builtDays(state.activeRoute).find(d => d > lesson.day);
   return {
     ls, lesson, mode: state.mode || 'open', tts: providers.tts, providerMode: providers.mode,
     rerender: render,
@@ -238,7 +275,7 @@ function lessonCtx(lesson) {
       ls.step = SEQ.indexOf('processing');
       render();
       try {
-        const t = await providers.stt.transcribe(ls.audioBlob, { durationMs: ls.durationMs, lang: 'en', day: ls.day });
+        const t = await providers.stt.transcribe(ls.audioBlob, { durationMs: ls.durationMs, lang: 'en', day: ls.day, routeId: state.activeRoute });
         // Аудіо більше не потрібне — видаляємо одразу, як і обіцяно.
         ls.audioBlob = null;
         track('transcription_succeeded', { day: ls.day, provider: t.provider });
@@ -317,7 +354,7 @@ function completeLesson(lesson) {
   const day = lesson.day;
   const key = String(day);
   state.completedDays = Array.from(new Set([...(state.completedDays || []), day]));
-  state.activeDay = nextDay(state.completedDays);
+  state.activeDay = nextDay(state.completedDays, state.activeRoute);
   state.lessons = state.lessons || {};
   state.lessons[key] = {
     completed: true,

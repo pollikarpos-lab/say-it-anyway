@@ -16,7 +16,10 @@ export function getProviders() {
   const useHttp = mode === 'http' && !!apiBaseUrl;
   return {
     mode: useHttp ? 'http' : 'mock',
-    stt: useHttp ? createHttpStt(apiBaseUrl) : createMockStt((day) => { const l = getLesson(day); return (l && l.demoTranscript) || ''; }),
+    // Демо-текст береться за днем І за маршрутом. Тільки за днем — означало
+    // б, що в другому маршруті показується чужа відповідь із першого.
+    stt: useHttp ? createHttpStt(apiBaseUrl)
+      : createMockStt((day, routeId) => { const l = getLesson(day, routeId); return (l && l.demoTranscript) || ''; }),
     llm: useHttp ? createHttpLlm(apiBaseUrl) : createMockLlm(),
     // TTS свідомо лишається браузерним навіть у http-режимі: голос уже
     // працює, коштує нуль і не залежить від мережі. Серверне озвучення

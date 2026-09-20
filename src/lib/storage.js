@@ -13,7 +13,9 @@ export const DEFAULT_STATE = {
   comfort: '',        // speak comfort level
   mode: '',           // 'christian' | 'open'
   reminder: '',
-  activeDay: 1,       // у MVP реалізовані дні 1–3
+  activeRoute: 'fear-7',  // який маршрут людина проходить зараз
+  byRoute: {},            // { 'fear-7': {activeDay, completedDays, savedPhrases, lessons, recordings} }
+  activeDay: 1,       // прогрес АКТИВНОГО маршруту; повна копія лежить у byRoute
   unlockAll: false,   // показовий режим: відкрити всі готові дні
   completedDays: [],
   savedPhrases: [],   // [{id, text, day, at}]

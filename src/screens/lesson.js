@@ -279,8 +279,11 @@ function templateStep(ctx, page, next) {
     h('h2', 'Збери ', h('em', 'своє речення.')),
     h('p.muted', { style: { marginBottom: '20px' } }, T.lead),
     preview,
-    slotGroup('feel'),
-    slotGroup('do'),
+    // Слоти беремо з самої рамки, а не списком імен: у кожного маршруту
+    // свій день 2 зі своїми id слотів. Жорстко вписані 'feel' і 'do' з
+    // першого маршруту означали, що в другому не малювався ЖОДЕН варіант —
+    // людина впиралася в екран із «…» і назавжди заблокованою кнопкою.
+    ...T.frame.filter(p => p.type === 'slot').map(p => slotGroup(p.id)),
     h('p.caption', T.hint),
   ], actionbar(
     primaryBtn('Це моє речення', () => { ctx.setTemplateSentence(sentence()); next(); },

@@ -265,3 +265,247 @@ PASSAGES['psa26.1-3'] = {
 };
 
 export function getPassage(id) { return PASSAGES[id]; }
+
+/* ═══════════════════════════════════════════════════════════════
+   МАРШРУТ 2 — «Далеко від дому»
+   ═══════════════════════════════════════════════════════════════ */
+
+PASSAGES['heb13.5'] = {
+  id: 'heb13.5',
+  refUk: 'До євреїв 13:5–6',
+  refEn: 'Hebrews 13:5–6',
+  uk: {
+    status: 'verified',
+    translation: 'OHIENKO',
+    verses: [
+      { n: 5, text: 'Будьте життям не грошолюбні, задовольняйтеся тим, що маєте. Сам бо сказав: Я тебе не покину, ані не відступлюся від тебе!' },
+      { n: 6, text: 'Тому то ми сміливо говоримо: Господь мені помічник, і я не злякаюсь нікого: що зробить людина мені?' },
+    ],
+    verifiedAgainst: [
+      { source: 'bible.com, переклад UBIO (Огієнко 1962)', date: '2026-09-19' },
+      { source: 'wordproject.org — український Огієнко', date: '2026-09-19' },
+    ],
+    verifiedNote: 'Обидва джерела дали ідентичний текст, символ у символ.',
+  },
+  en: {
+    status: 'verified',
+    translation: 'BSB',
+    verses: [
+      { n: 5, text: 'Keep your lives free from the love of money and be content with what you have, for God has said: “Never will I leave you, never will I forsake you.”' },
+      { n: 6, text: 'So we say with confidence: “The Lord is my helper; I will not be afraid. What can man do to me?”' },
+    ],
+    verifiedAgainst: [{ source: 'biblehub.com/bsb — Hebrews 13', date: '2026-09-19' }],
+    verifiedNote: 'Звірено дослівно.',
+  },
+  context: {
+    author: 'Редакторський коментар (людина)',
+    body: 'Перша половина вірша — про гроші, і це не випадкова сусідка. Лист написаний людям, які втратили майно й опинилися без опори; у них не лишилося ні дому, ні статків, ні впевненості в завтрашньому дні. Обіцянка «не покину» стоїть саме тут, поруч із порожнім гаманцем, а не серед благополуччя.',
+    caution: 'Тут не сказано, що самотність — це неправда чи що її не буде. Сказано інше: що присутність не залежить від того, чи ти її зараз відчуваєш.',
+  },
+};
+
+PASSAGES['psa67.7'] = {
+  id: 'psa67.7',
+  refUk: 'Псалом 67 (68):7',
+  refEn: 'Psalm 68:6',
+  uk: {
+    status: 'verified',
+    translation: 'OHIENKO',
+    verses: [
+      { n: 7, text: 'Бог самітних уводить до дому, витягує в’язнів з кайданів, тільки відступники мешкати будуть у спаленій сонцем землі!' },
+    ],
+    verifiedAgainst: [
+      { source: 'bible.com, переклад UBIO (Огієнко 1962)', date: '2026-09-19' },
+      { source: 'wordproject.org — український Огієнко', date: '2026-09-19' },
+    ],
+    verifiedNote: 'Текст ідентичний в обох джерелах. Знову розбіжність у НОМЕРІ псалма, як і з Псалмом 26 (27): bible.com друкує «ПСАЛОМ 67 (68)» — септуагінтна нумерація з масоретською в дужках, wordproject подає той самий текст як Псалом 68. Номер вірша в обох — 7. В англійських перекладах це Псалом 68, вірш 6: там інакше рахується надписання. Тому показані обидва номери.',
+  },
+  en: {
+    status: 'verified',
+    translation: 'BSB',
+    verses: [
+      { n: 6, text: 'God settles the lonely in families; He leads the prisoners out to prosperity, but the rebellious dwell in a sun-scorched land.' },
+    ],
+    verifiedAgainst: [{ source: 'biblehub.com/bsb — Psalm 68', date: '2026-09-19' }],
+    verifiedNote: 'Звірено дослівно. Український вірш 7 = англійський вірш 6.',
+  },
+  context: {
+    author: 'Редакторський коментар (людина)',
+    body: '«Самітні» тут — не просто люди в поганому настрої. У мові оригіналу це ті, хто лишився без роду: без сім’ї, без клану, без тих, хто за тебе заступиться. У стародавньому світі це означало не смуток, а беззахисність. І сказано не «Бог утішає самітних», а «уводить до дому» — тобто дає їм те, чого бракує: своїх людей.',
+    caution: 'Вірш закінчується різко — згадкою про відступників і спалену сонцем землю. Ми не прибрали цього рядка, хоч він і не про нашу тему: показувати половину вірша, а другу ховати, було б нечесно. Псалми часто такі: втіха й суд в одному реченні.',
+  },
+};
+
+PASSAGES['psa41.1-4'] = {
+  id: 'psa41.1-4',
+  refUk: 'Псалом 42:1, 3–4  (в інших виданнях 41 (42):2, 4–5)',
+  refEn: 'Psalm 42:1, 3–4',
+  uk: {
+    status: 'verified',
+    translation: 'OHIENKO',
+    verses: [
+      { n: 1, text: 'Як лине той олень до водних потоків, так лине до Тебе, о Боже, душа моя,' },
+      { n: 3, text: 'Сльоза моя стала для мене поживою вдень та вночі, коли кажуть мені цілий день: Де твій Бог?' },
+      { n: 4, text: 'Як про це пригадаю, то душу свою виливаю, як я многолюдді ходив, і водив їх до Божого дому, із голосом співу й подяки святкового натовпу...' },
+    ],
+    verifiedAgainst: [
+      { source: 'bible.com, переклад UBIO (Огієнко 1962)', date: '2026-09-20' },
+      { source: 'wordproject.org — український Огієнко', date: '2026-09-20' },
+    ],
+    verifiedNote: 'Текст ідентичний в обох джерелах. Але тут розбіжність складніша за попередні: різняться не лише номери ПСАЛМА, а й номери ВІРШІВ. bible.com друкує «ПСАЛОМ 41 (42)» і рахує надписання як вірш 1, тому наші рядки там — 2, 4 і 5. wordproject подає це як Псалом 42 і починає відлік із самого тексту, тому ті самі рядки — 1, 3 і 4. Англійські переклади рахують як wordproject. Ми взяли нумерацію, що збігається з англійською, і в посиланні показали обидві: інакше людина відкриє свою Біблію й не знайде рядка. Слова «як я многолюдді ходив» наведені точно як надруковано — прийменник відсутній в обох джерелах, тож це текст видання, а не наша помилка.',
+  },
+  en: {
+    status: 'verified',
+    translation: 'BSB',
+    verses: [
+      { n: 1, text: 'As the deer pants for streams of water, so my soul longs after You, O God.' },
+      { n: 3, text: 'My tears have been my food both day and night, while men ask me all day long, “Where is your God?”' },
+      { n: 4, text: 'These things come to mind as I pour out my soul: how I walked with the multitude, leading the festive procession to the house of God with shouts of joy and praise.' },
+    ],
+    verifiedAgainst: [{ source: 'biblehub.com/bsb — Psalm 42', date: '2026-09-20' }],
+    verifiedNote: 'Звірено дослівно.',
+  },
+  context: {
+    author: 'Редакторський коментар (людина)',
+    body: 'Це писала людина далеко від дому. Не в пригніченому настрої — фізично не там, де лишилося все своє. Найточніший рядок тут третій: найбільше болить не сама відсутність, а спогад про те, як було. Людина згадує, як ішла в натовпі до храму — зі співом, зі своїми — і саме від цього спогаду «виливає душу». Туга за домом майже завжди приходить не порожнечею, а згадкою про повноту.',
+    caution: 'Псалом не закінчується розрадою й не дає поради. Він просто називає стан і ставить питання, на яке в тексті немає відповіді.',
+  },
+};
+
+PASSAGES['exo2.22'] = {
+  id: 'exo2.22',
+  refUk: 'Вихід 2:22',
+  refEn: 'Exodus 2:22',
+  uk: {
+    status: 'verified',
+    translation: 'OHIENKO',
+    verses: [
+      { n: 22, text: 'І породила вона сина, а він назвав ім’я йому: Ґершом, бо сказав: Я став приходьком у чужому краї.' },
+    ],
+    verifiedAgainst: [
+      { source: 'bible.com, переклад UBIO (Огієнко 1962)', date: '2026-09-20' },
+      { source: 'wordproject.org — український Огієнко', date: '2026-09-20' },
+    ],
+    verifiedNote: 'Обидва джерела дали ідентичний текст.',
+  },
+  en: {
+    status: 'verified',
+    translation: 'BSB',
+    verses: [
+      { n: 22, text: 'And she gave birth to a son, and Moses named him Gershom, saying, “I have become a foreigner in a foreign land.”' },
+    ],
+    verifiedAgainst: [{ source: 'biblehub.com/bsb — Exodus 2', date: '2026-09-20' }],
+    verifiedNote: 'Звірено дослівно.',
+  },
+  context: {
+    author: 'Редакторський коментар (людина)',
+    body: 'Мойсей утік із Єгипту й прожив у Мідіяні сорок років — одружився, працював, ростив дітей. І назвав первістка іменем, яке щодня нагадувало: я тут чужий. Не «ми влаштувалися», не «все добре» — а «я став приходьком». Людина може прожити на новому місці півжиття й досі носити це в собі. Текст не вважає це слабкістю й не пропонує з цим боротися.',
+    caution: 'Це не обіцянка, а констатація. Історія Мойсея закінчилася поверненням, але з тексту цього ще не видно — і ми не робимо вигляду, що видно.',
+  },
+};
+
+PASSAGES['ecc4.9-10'] = {
+  id: 'ecc4.9-10',
+  refUk: 'Екклезіяста 4:9–10',
+  refEn: 'Ecclesiastes 4:9–10',
+  uk: {
+    status: 'verified',
+    translation: 'OHIENKO',
+    verses: [
+      { n: 9, text: 'Краще двом, як одному, бо мають хорошу заплату за труд свій,' },
+      { n: 10, text: 'і якби вони впали, підійме одне свого друга! Та горе одному, як він упаде, й нема другого, щоб підвести його...' },
+    ],
+    verifiedAgainst: [
+      { source: 'bible.com, переклад UBIO (Огієнко 1962)', date: '2026-09-20' },
+      { source: 'wordproject.org — український Огієнко', date: '2026-09-20' },
+    ],
+    verifiedNote: 'Обидва джерела дали ідентичний текст.',
+  },
+  en: {
+    status: 'verified',
+    translation: 'BSB',
+    verses: [
+      { n: 9, text: 'Two are better than one, because they have a good return for their labor.' },
+      { n: 10, text: 'For if one falls down, his companion can lift him up; but pity the one who falls without another to help him up!' },
+    ],
+    verifiedAgainst: [{ source: 'biblehub.com/bsb — Ecclesiastes 4', date: '2026-09-20' }],
+    verifiedNote: 'Звірено дослівно.',
+  },
+  context: {
+    author: 'Редакторський коментар (людина)',
+    body: 'Екклезіяст — найтверезіша книга Біблії, вона рідко втішає. І саме тому цей рядок вагомий: тут не сказано «удвох приємніше». Сказано практичне — той, хто впаде сам, лишиться лежати. Це не про дружбу як прикрасу життя, а про те, що людині без інших людей фізично важче встати.',
+    caution: 'Текст не каже, як знайти цю другу людину. Він лише називає ціну її відсутності.',
+  },
+};
+
+PASSAGES['lev19.33-34'] = {
+  id: 'lev19.33-34',
+  refUk: 'Левит 19:33–34',
+  refEn: 'Leviticus 19:33–34',
+  uk: {
+    status: 'verified',
+    translation: 'OHIENKO',
+    verses: [
+      { n: 33, text: 'А коли мешкатиме з тобою приходько в вашім Краї, то не будете гнобити його.' },
+      { n: 34, text: 'Як тубілець із вас буде для вас приходько, що мешкає з вами, і ти будеш любити його, як самого себе, бо приходьки були ви в єгипетськім краї. Я Господь, Бог ваш!' },
+    ],
+    verifiedAgainst: [
+      { source: 'bible.com, переклад UBIO (Огієнко 1962)', date: '2026-09-20' },
+      { source: 'wordproject.org — український Огієнко', date: '2026-09-20' },
+    ],
+    verifiedNote: 'Обидва джерела дали ідентичний текст. Перший витяг із bible.com обірвався на «в єгипетськім краї» — повторна перевірка показала, що вірш закінчується словами «Я Господь, Бог ваш!», як і в wordproject.',
+  },
+  en: {
+    status: 'verified',
+    translation: 'BSB',
+    verses: [
+      { n: 33, text: 'When a foreigner resides with you in your land, you must not oppress him.' },
+      { n: 34, text: 'You must treat the foreigner living among you as native-born and love him as yourself, for you were foreigners in the land of Egypt. I am the LORD your God.' },
+    ],
+    verifiedAgainst: [{ source: 'biblehub.com/bsb — Leviticus 19', date: '2026-09-20' }],
+    verifiedNote: 'Звірено дослівно.',
+  },
+  context: {
+    author: 'Редакторський коментар (людина)',
+    body: 'Підстава тут не в доброті, а в пам’яті: «бо приходьки були ви в єгипетськім краї». Тобто ти маєш що сказати новому не тому, що ти кращий, а тому, що ти був на його місці й пам’ятаєш, як воно. Це найпряміша відповідь на питання, навіщо взагалі розповідати комусь про свою самотність.',
+    caution: 'Закон говорить до народу, а не до окремої людини, і це не порада психолога. Ми беремо звідси одну думку — про пам’ять як підставу — і не видаємо її за все, що в цьому тексті є.',
+  },
+};
+
+PASSAGES['heb11.13-16'] = {
+  id: 'heb11.13-16',
+  refUk: 'До євреїв 11:13–16',
+  refEn: 'Hebrews 11:13–16',
+  uk: {
+    status: 'verified',
+    translation: 'OHIENKO',
+    verses: [
+      { n: 13, text: 'Усі вони повмирали за вірою, не одержавши обітниць, але здалека бачили їх, і повітали, і вірували в них, та визнавали, що вони на землі чужаниці й приходьки.' },
+      { n: 14, text: 'Бо ті, що говорять таке, виявляють, що шукають батьківщини.' },
+      { n: 15, text: 'І коли б вони пам’ятали ту, що вийшли з неї, то мали б були час повернутись.' },
+      { n: 16, text: 'Та бажають вони тепер кращої, цебто небесної, тому й Бог не соромиться їх, щоб звати Себе їхнім Богом, бо Він приготував їм місто.' },
+    ],
+    verifiedAgainst: [
+      { source: 'bible.com, переклад UBIO (Огієнко 1962)', date: '2026-09-20' },
+      { source: 'wordproject.org — український Огієнко', date: '2026-09-20' },
+    ],
+    verifiedNote: 'Обидва джерела дали ідентичний текст, символ у символ.',
+  },
+  en: {
+    status: 'verified',
+    translation: 'BSB',
+    verses: [
+      { n: 13, text: 'All these people died in faith, without having received the things they were promised. However, they saw them and welcomed them from afar. And they acknowledged that they were strangers and exiles on the earth.' },
+      { n: 14, text: 'Now those who say such things show that they are seeking a country of their own.' },
+      { n: 15, text: 'If they had been thinking of the country they had left, they would have had opportunity to return.' },
+      { n: 16, text: 'Instead, they were longing for a better country, a heavenly one. Therefore God is not ashamed to be called their God, for He has prepared a city for them.' },
+    ],
+    verifiedAgainst: [{ source: 'biblehub.com/bsb — Hebrews 11', date: '2026-09-20' }],
+    verifiedNote: 'Звірено дослівно.',
+  },
+  context: {
+    author: 'Редакторський коментар (людина)',
+    body: 'Тринадцятий вірш — найчесніший рядок про еміграцію в усій Біблії: люди померли, так і не отримавши обіцяного, і бачили його тільки здалека. Не «все склалося», не «вони дочекалися». І при цьому текст не називає їхнє життя невдалим. П’ятнадцятий вірш пояснює чому: вони могли повернутися — час був — і не повернулися.',
+    caution: 'Тут прямо сказано, що шукана батьківщина — небесна. Ми не перетворюємо це на пораду «не сумуй за домом» і не обіцяємо, що туга мине. Текст говорить про інше: що можна жити приходьком і не вважати своє життя змарнованим.',
+  },
+};

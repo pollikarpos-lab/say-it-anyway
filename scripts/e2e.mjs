@@ -567,6 +567,241 @@ try {
   check('розбір працює на власному тексті',
     myImproved.includes("I'm really worried") && myImproved.includes('stop thinking'), myImproved.slice(0, 70) + '…');
 
+  /* ═══════════════════════════════════════════
+     ДРУГИЙ МАРШРУТ — «Далеко від дому»
+     Фінал сьомого дня має бути дверима, а не глухим кутом. І перехід
+     не сміє коштувати людині прогресу першого маршруту.
+     ═══════════════════════════════════════════ */
+  // Блок стоїть у кінці прогону, тож спершу повертаємося на головну
+  // маршруту — до цього моменту застосунок міг лишитися на іншому екрані.
+  await b.eval(`location.hash = '#/route'`); await wait(500);
+  const routeHome = await b.eval(text());
+  check('після фіналу видно іншу тему', has(routeHome, 'Інша тема') && has(routeHome, 'Далеко від дому'));
+  check('двері з\'являються ЛИШЕ після завершення',
+    await b.eval(`window.__SIA__.state.completedDays.length === 7`));
+
+  await b.eval(clickText('Далеко від дому', '.choice')); await wait(500);
+  const r2 = await b.eval(text());
+  check('маршрут перемкнувся', await b.eval(`window.__SIA__.state.activeRoute === 'alone-7'`));
+  check('другий маршрут має власну обіцянку', has(r2, 'найважче в житті тут'));
+  check('прогрес другого маршруту порожній',
+    await b.eval(`(window.__SIA__.state.completedDays || []).length === 0`));
+  check('прогрес ПЕРШОГО маршруту не втрачено',
+    await b.eval(`(window.__SIA__.state.byRoute['fear-7'].completedDays || []).length === 7`));
+  check('написані дні доступні, ненаписані — ні',
+    await b.eval(`[...document.querySelectorAll('.day')].filter(d => !d.disabled).length === 1`));
+  check('усі сім днів другого маршруту написані — жодного «готується»', !has(r2, 'Ще готується'));
+  check('усі 7 днів другого маршруту в списку', [1,2,3,4,5,6,7].every(n => has(r2, 'День ' + n)));
+  await b.shot(SHOTS + '70-route2-home.png', { full: true });
+
+  await b.eval(clickSel('.day.is-active')); await wait(450);
+  check('день 1 другого маршруту відкрився', await b.eval(`window.__SIA__.lesson.day === 1`));
+  check('це урок саме другого маршруту', has(await b.eval(text()), 'Ти тут не сам'));
+  await b.eval(clickText('Почати')); await wait(250);
+  await b.eval(clickText('Далі')); await wait(250);
+  const r2uk = await b.eval(text());
+  check('уривок Євреїв 13 звірений', has(r2uk, 'Я тебе не покину'));
+  await b.eval(clickText('Тепер англійською')); await wait(250);
+  check('BSB Hebrews 13', has(await b.eval(text()), 'Never will I leave you'));
+  await b.shot(SHOTS + '71-route2-day1-scripture.png', { full: true });
+
+  await b.eval(clickText('Далі')); await wait(250);   // англійська → контекст
+  await b.eval(clickText('Далі')); await wait(250);   // контекст → фрази
+  await b.eval(clickText('Далі')); await wait(250);   // фрази → згода
+  await b.eval(clickText('Згоден, далі')); await wait(350);
+  check('д1/м2: екран повторення за диктором', has(await b.eval(text()), 'Фраза 1 з 3'));
+  await recordInto('.mic', 1600);
+  check('д1/м2: фразу записано',
+    await b.eval(`Object.keys(window.__SIA__.lesson.shadowRec).length === 1`));
+  await b.shot(SHOTS + '72-route2-day1-shadow.png', { full: true });
+
+  // Дні 2–5 другого маршруту — прохід поспіль, як робитиме людина.
+  // Найважливіше тут день 3: з нього рахується прогрес і з ним потім
+  // порівнюється сьомий.
+  for (let i = 2; i <= 3; i++) {
+    await b.eval(clickText('Наступна фраза')); await wait(350);
+    await recordInto('.mic', 1400);
+  }
+  await b.eval(clickText('Завершити')); await wait(600);
+  check('д1/м2: урок завершено', has(await b.eval(text()), 'День 1 — пройдено'));
+
+  await b.eval(`location.hash = '#/route'`); await wait(450);
+  await b.eval(clickSel('.day.is-active')); await wait(450);
+  check('д2/м2: відкрився день 2', await b.eval(`window.__SIA__.lesson.day === 2`));
+  await b.eval(clickText('Почати')); await wait(250);
+  await b.eval(clickText('Далі')); await wait(250);
+  check('д2/м2: Псалом 67 (68) звірений', has(await b.eval(text()), 'Бог самітних уводить до дому'));
+  check('д2/м2: пояснено розбіжність у нумерації', has(await b.eval(text()), 'нумерацію') || has(await b.eval(text()), '67 (68)'));
+  await b.eval(clickText('Тепер англійською')); await wait(250);
+  check('д2/м2: BSB Psalm 68', has(await b.eval(text()), 'God settles the lonely'));
+  await b.shot(SHOTS + '73-route2-day2-scripture.png', { full: true });
+  await b.eval(clickText('Далі')); await wait(250);   // англійська → контекст
+  await b.eval(clickText('Далі')); await wait(250);   // контекст → фрази
+  await b.eval(clickText('Далі')); await wait(250);   // фрази → рамка
+  const tpl = await b.eval(text());
+  // Перевіряємо саме екран рамки, а не наявність фрази: «The hardest part
+  // is» стоїть і на екрані конструкцій, тож м'яка перевірка мовчки
+  // пропускала помилку в кількості кроків.
+  check('д2/м2: екран рамки', has(tpl, 'Збери') && has(tpl, 'Твоє речення'));
+  check('д2/м2: варіанти для обох слотів намальовані',
+    await b.eval(`document.querySelectorAll('.chip').length >= 8`));
+  await b.shot(SHOTS + '74-route2-day2-template.png', { full: true });
+
+  await b.eval(clickText('eating alone', '.chip')); await wait(250);
+  await b.eval(clickText('calling home', '.chip')); await wait(250);
+  check('д2/м2: речення зібралося',
+    has(await b.eval(text()), 'The hardest part is eating alone. What helps is calling home.'));
+  await b.eval(clickText('Це моє речення')); await wait(300);
+  await b.eval(clickText('Згоден, далі')); await wait(350);
+  await recordInto('.mic', 2000);
+  await b.eval(clickText('Надіслати на розбір'));
+  await analysisReady(); await wait(250);
+  check('д2/м2: демо-текст саме другого маршруту',
+    (await b.eval(`window.__SIA__.lesson.transcript.text`)).includes('The hardest part is eat alone'));
+  await b.eval(clickText('Так, далі')); await wait(350);
+  check('д2/м2: спіймано «is eat»', has(await b.eval(text()), 'part is eating'));
+  await b.eval(clickText('Показати природнішу версію')); await wait(350);
+  await b.eval(clickText('Далі')); await wait(300);
+  await b.eval(clickText('Зберегти мою фразу')); await wait(500);
+  check('д2/м2: урок завершено', has(await b.eval(text()), 'День 2 — пройдено'));
+
+  /* ───────── День 3 другого маршруту: звідси рахується прогрес ───────── */
+  await b.eval(clickText('Далі: день 3')); await wait(500);
+  check('д3/м2: день 3 відкрився', await b.eval(`window.__SIA__.lesson.day === 3`));
+  await b.eval(clickText('Почати')); await wait(250);
+  check('д3/м2: запитання про те, за ким сумуєш', has(await b.eval(text()), 'сумуєш'));
+  await b.eval(clickText('Далі')); await wait(250);
+  const a3uk = await b.eval(text());
+  check('д3/м2: Псалом звірений', has(a3uk, 'Як лине той олень'));
+  // Четвертий і найгірший випадок розбіжності: різні видання Огієнка дають
+  // цьому рядку різні номери ВІРШІВ. Людина з паперовою Біблією мусить
+  // бачити обидві нумерації, інакше просто не знайде місця.
+  check('д3/м2: показані обидві нумерації', has(a3uk, '42:1') && has(a3uk, '41 (42)'));
+  await b.eval(clickText('Тепер англійською')); await wait(250);
+  check('д3/м2: BSB Psalm 42', has(await b.eval(text()), 'As the deer pants'));
+  await b.shot(SHOTS + '75-route2-day3-scripture.png', { full: true });
+  await b.eval(clickText('Далі')); await wait(250);
+  await walkOpenDay(3, {
+    shotPrefix: '76-route2-day3',
+    expectCorrection: 'really miss',
+    expectInProof: ['used to talk', 'knows me'],
+    nextLabel: 'Далі: день 4',
+    expectUsed: ['weusedto'],
+    expectUnused: ['ireallymiss'],
+  });
+  const secs3 = await b.eval(`window.__SIA__.state.lessons['3'].speechMs`);
+  check('д3/м2: тривалість мовлення записана саме в цьому маршруті', secs3 > 0, `${secs3} мс`);
+
+  /* ───────── День 4 ───────── */
+  await b.eval(clickText('Далі: день 4')); await wait(500);
+  await b.eval(clickText('Почати')); await wait(250);
+  check('д4/м2: запитання про перший раз', has(await b.eval(text()), 'вперше відчув'));
+  await b.eval(clickText('Далі')); await wait(250);
+  check('д4/м2: Вихід 2:22 звірений', has(await b.eval(text()), 'приходьком у чужому краї'));
+  await b.eval(clickText('Тепер англійською')); await wait(250);
+  check('д4/м2: BSB Exodus 2', has(await b.eval(text()), 'a foreigner in a foreign land'));
+  await b.eval(clickText('Далі')); await wait(250);
+  await walkOpenDay(4, {
+    shotPrefix: '77-route2-day4',
+    expectCorrection: "didn't know",
+    expectInProof: ['I went to a party', 'everybody laughed'],
+    nextLabel: 'Далі: день 5',
+    expectUsed: ['firsttime'],
+  });
+
+  /* ───────── День 5 ───────── */
+  await b.eval(clickText('Далі: день 5')); await wait(500);
+  await b.eval(clickText('Почати')); await wait(250);
+  await b.eval(clickText('Далі')); await wait(250);
+  check('д5/м2: Екклезіяста 4 звірений', has(await b.eval(text()), 'Краще двом, як одному'));
+  await b.eval(clickText('Тепер англійською')); await wait(250);
+  check('д5/м2: BSB Ecclesiastes 4', has(await b.eval(text()), 'Two are better than one'));
+  await b.eval(clickText('Далі')); await wait(250);
+  await walkOpenDay(5, {
+    shotPrefix: '78-route2-day5',
+    expectCorrection: 'will ask',
+    expectInProof: ['There is a man', 'could have lunch'],
+    nextLabel: 'Далі: день 6',
+    expectUsed: ['maybewecould', 'itsawkward'],
+  });
+
+  /* ───────── День 6: сказати це іншому ───────── */
+  await b.eval(clickText('Далі: день 6')); await wait(500);
+  await b.eval(clickText('Почати')); await wait(250);
+  check('д6/м2: адресат — інша людина', has(await b.eval(text()), 'приїхала сюди місяць тому'));
+  await b.eval(clickText('Далі')); await wait(250);
+  check('д6/м2: Левит 19 звірений', has(await b.eval(text()), 'не будете гнобити його'));
+  await b.eval(clickText('Тепер англійською')); await wait(250);
+  check('д6/м2: BSB Leviticus 19', has(await b.eval(text()), 'When a foreigner resides with you'));
+  await b.eval(clickText('Далі')); await wait(250);
+  check('д6/м2: контекст про пам\'ять, а не про доброту', has(await b.eval(text()), 'пам'));
+  await walkOpenDay(6, {
+    shotPrefix: '79-route2-day6',
+    expectCorrection: 'tell me',
+    expectInProof: ['When I came here', 'It takes time'],
+    nextLabel: 'Далі: день 7',
+    // Найважливіша перевірка дня: у сирому тексті сказано «you can say me»,
+    // «it need time» і «I know how is it». Це помилкові форми всіх трьох
+    // цілей — жодна не сміє зарахуватися. Метрика, яка хвалить за несказане,
+    // гірша за відсутність метрики.
+    expectUnused: ['iknowhow', 'ittakestime', 'youcantell'],
+  });
+  check('д6/м2: екран чесно каже, що жодна конструкція не прозвучала',
+    has(await b.eval(text()), 'жодна з трьох не прозвучала'));
+
+  /* ───────── День 7: монолог і порівняння з днем 3 ───────── */
+  await b.eval(clickText('Далі: день 7')); await wait(500);
+  const a7intro = await b.eval(text());
+  check('д7/м2: це монолог', has(a7intro, 'півтори хвилини') || has(a7intro, 'Монолог'));
+  await b.eval(clickText('Почати')); await wait(250);
+  check('д7/м2: запитання про дім', has(await b.eval(text()), 'тепер дім'));
+  await b.eval(clickText('Далі')); await wait(250);
+  check('д7/м2: Євреїв 11 звірений', has(await b.eval(text()), 'не одержавши обітниць'));
+  await b.eval(clickText('Тепер англійською')); await wait(250);
+  check('д7/м2: BSB Hebrews 11', has(await b.eval(text()), 'died in faith'));
+  await b.shot(SHOTS + '80-route2-day7-scripture.png', { full: true });
+  await b.eval(clickText('Далі')); await wait(250);
+  await walkOpenDay(7, {
+    shotPrefix: '81-route2-day7',
+    expectCorrection: 'happened',
+    expectInProof: ["mother's kitchen", "I'm still learning"],
+    nextLabel: 'До підсумків маршруту',
+    expectUsed: ['aweekago', 'homeisnow', 'stilllearning'],
+    checkBottomReachable: true,
+  });
+
+  const a7done = await b.eval(text());
+  check('д7/м2: є блок порівняння «День 3 → День 7»', has(a7done, 'День 3 → День 7'));
+  check('д7/м2: порівняння взяло дані ДРУГОГО маршруту, а не першого',
+    !has(a7done, 'Дані дня 3 не знайдені'));
+  check('д7/м2: показані секунди обох днів',
+    has(a7done, 'секунд у день 3') && has(a7done, 'секунд сьогодні'));
+  check('д7/м2: маршрут пройдено повністю', has(a7done, 'Маршрут пройдено повністю'));
+  check('д7/м2: усі 7 крапок засвічені',
+    await b.eval(`document.querySelectorAll('.route-dots i.on').length === 7`));
+  await b.shot(SHOTS + '82-route2-day7-comparison.png', { full: true });
+
+  await b.eval(clickText('До підсумків маршруту')); await wait(450);
+  check('обидва маршрути пройдені й це видно',
+    await b.eval(`window.__SIA__.state.byRoute['fear-7'].completedDays.length === 7
+      && window.__SIA__.state.byRoute['alone-7'].completedDays.length === 7`));
+  const bothDone = await b.eval(text());
+  check('пройдена тема не видається за нову',
+    !has(bothDone, 'Інша тема') && has(bothDone, 'Пройдені теми'));
+  check('видно, що в першій темі вже пройдено сім днів', has(bothDone, 'Пройдено днів: 7'));
+  await b.shot(SHOTS + '83-route2-complete.png', { full: true });
+
+  // Повернення до першого маршруту не мусить нічого стерти. Перемикаємося
+  // так само, як людина, — карткою теми, а не викликом зсередини.
+  await b.eval(clickText('Не бійся говорити', '.choice')); await wait(500);
+  check('повернення в перший маршрут зберігає його прогрес',
+    await b.eval(`window.__SIA__.state.completedDays.length === 7
+      && window.__SIA__.state.activeRoute === 'fear-7'`));
+  await b.eval(clickText('Далеко від дому', '.choice')); await wait(500);
+  check('і прогрес другого теж на місці',
+    await b.eval(`window.__SIA__.state.completedDays.length === 7
+      && window.__SIA__.state.activeRoute === 'alone-7'`));
+
   /* ═══════════ Налаштування й видалення ═══════════ */
   await b.eval(`location.hash='#/settings'`); await wait(400);
   const setTxt = await b.eval(text());
