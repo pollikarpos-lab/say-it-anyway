@@ -249,3 +249,56 @@ test('без сховища подій сервер каже про це пря�
   assert.equal(res.status, 503);
   assert.equal((await res.json()).error, 'no_db');
 });
+
+/** Мінімальний двійник D1: пам'ятає, чи створено таблицю, і кидає, якщо ні. */
+function fakeD1() {
+  let created = false;
+  const rowFor = () => ({ n: 0 });
+  return {
+    get created() { return created; },
+    async exec(sql) { if (/CREATE TABLE/i.test(sql)) created = true; },
+    prepare(sql) {
+      const stmt = {
+        bind: () => stmt,
+        async first() {
+          if (!created) throw new Error('no such table: events');
+          return rowFor(sql);
+        },
+        async all() {
+          if (!created) throw new Error('no such table: events');
+          return { results: [] };
+        },
+      };
+      return stmt;
+    },
+  };
+}
+
+test('статистика на порожній базі показує воронку, а не помилку платформи', async () => {
+  // Власник відкриває /stats ДО першого користувача. Таблиці ще немає,
+  // бо її створювала лише перша подія — і сторінка падала винятком, а
+  // Cloudflare показував «Error 1101». Порожня воронка — правильна
+  // відповідь; сторінка помилки — ні.
+  const db = fakeD1();
+  const res = await worker.fetch(
+    new Request('https://example.com/stats?key=секрет'),
+    { ...ENV, DB: db, STATS_KEY: 'секрет' });
+  assert.equal(res.status, 200, 'сторінка мусить відкритися');
+  assert.equal(db.created, true, 'таблиця створюється й тут, не лише при першій події');
+  const html = await res.text();
+  assert.ok(/Відкрили лендинг/.test(html), 'воронка на місці');
+});
+
+test('коли статистика справді зламалася, вона каже що саме', async () => {
+  // Сторінку відкривають саме тоді, коли щось не так. Платформна
+  // заглушка тут марна: з неї не видно нічого.
+  const broken = {
+    async exec() { throw new Error('сховище недоступне'); },
+    prepare() { throw new Error('сховище недоступне'); },
+  };
+  const res = await worker.fetch(
+    new Request('https://example.com/stats?key=секрет'),
+    { ...ENV, DB: broken, STATS_KEY: 'секрет' });
+  assert.equal(res.status, 500);
+  assert.ok((await res.text()).includes('сховище недоступне'));
+});

@@ -178,6 +178,9 @@ async function handleAnalyze(request, env) {
    підмінити його може будь-хто, і тоді єдиною перепоною лишається
    сервер. Вільного тексту в базі не має бути за жодних обставин. */
 
+const esc = (s) => String(s).replace(/[&<>"]/g, c => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
 async function ensureTable(db) {
   await db.exec(
     'CREATE TABLE IF NOT EXISTS events (' +
@@ -243,9 +246,24 @@ export default {
       if (!env.STATS_KEY || url.searchParams.get('key') !== env.STATS_KEY) {
         return new Response('Потрібен ключ: /stats?key=…', { status: 401 });
       }
-      return new Response(await statsPage(env), {
-        headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
-      });
+      // Таблиця створюється тут теж, а не лише при першій події. Інакше
+      // власник, який відкрив статистику ДО того, як прийшов перший
+      // користувач, отримував виняток «no such table: events» — і бачив
+      // не порожню воронку, а сторінку помилки Cloudflare.
+      try {
+        await ensureTable(env.DB);
+        return new Response(await statsPage(env), {
+          headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+        });
+      } catch (e) {
+        // Це сторінка, яку відкривають САМЕ тоді, коли щось не так. Вона не
+        // має права падати платформною помилкою: з «Error 1101» не видно
+        // нічого, а з цим рядком видно, що саме зламалося.
+        console.error('stats_failed', String((e && e.message) || e));
+        return new Response(
+          'Статистика недоступна: ' + esc(String((e && e.message) || e)),
+          { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+      }
     }
 
     if (!url.pathname.startsWith('/api/')) {
